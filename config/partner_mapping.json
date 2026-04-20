@@ -1,0 +1,6 @@
+[
+  { "canonical": "SWM Versorgungs GmbH", "aliases": ["swm", "stadtwerke münchen", "swm versorgungs"], "kategorie": "energie" },
+  { "canonical": "Allianz Versicherung", "aliases": ["allianz", "allianz versicherung"], "kategorie": "versicherung" },
+  { "canonical": "Münchner Entsorgung", "aliases": ["entsorgung", "müllabfuhr"], "kategorie": "entsorgung" },
+  { "canonical": "MIETER", "aliases": ["flury", "eineder", "kammerer", "huber", "schmid"], "kategorie": "mieter" }
+]

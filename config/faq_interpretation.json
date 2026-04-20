@@ -1,0 +1,31 @@
+{
+  "miete": {
+    "konten": [8105, 8115, 8400, 8403],
+    "beschreibung": "alle Mietarten (Wohnung, Gewerbe, Stellplatz, variable Vergütung)",
+    "synonyme": ["miete", "mietzahlung", "mieteinnahmen"]
+  },
+  "kosten": {
+    "konten": "alle_kosten",
+    "beschreibung": "alle Ausgabenkonten",
+    "synonyme": ["kosten", "ausgaben", "aufwand"]
+  },
+  "heizkosten": {
+    "konten": [4230],
+    "beschreibung": "Heizkostenkonto",
+    "synonyme": ["heizkosten", "heizung"]
+  },
+  "versicherung": {
+    "konten": [4360],
+    "beschreibung": "Versicherungskosten",
+    "synonyme": ["versicherung", "allianz"]
+  },
+  "nebenkosten": {
+    "standard": "vorauszahlung",
+    "varianten": {
+      "vorauszahlung": { "konten": [8195, 8401], "trigger": ["vorauszahlung", "abschlag"] },
+      "abrechnung": { "konten": [8197, 8402], "trigger": ["abrechnung", "nachzahlung"] }
+    },
+    "beschreibung": "Betriebskosten als Vorauszahlung oder Abrechnung",
+    "synonyme": ["nebenkosten", "betriebskosten", "bk"]
+  }
+}

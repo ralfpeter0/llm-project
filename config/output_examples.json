@@ -1,0 +1,19 @@
+{
+  "beispiele": [
+    {
+      "frage": "Was hat Flury 2025 an Miete gezahlt?",
+      "ausgabe": {
+        "summe": "12.000,00 €",
+        "buchungen": 12
+      }
+    },
+    {
+      "frage": "Wie viel hat Allianz 2025 gekostet?",
+      "ausgabe": {
+        "summe": "1.980,00 €",
+        "buchungen": 4
+      }
+    }
+  ],
+  "max_zeilen": 10
+}

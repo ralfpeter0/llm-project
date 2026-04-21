@@ -20,14 +20,6 @@ SYSTEM_PROMPT = (
     "- wichtigen Begriffen fett"
 )
 
-MENU_ITEMS = [
-    "LLM Chat",
-    "Daten Import",
-    "nach Mieter",
-    "nach Einheit",
-    "nach Objekt",
-]
-
 
 st.set_page_config(page_title="Immo Agent", layout="wide")
 
@@ -76,15 +68,6 @@ st.markdown(
             border-color: #dde5ee;
         }
 
-        [data-testid="stChatInput"] {
-            position: sticky;
-            bottom: 0;
-            background: var(--background-color);
-            padding-top: 0.7rem;
-            padding-bottom: 0.2rem;
-            z-index: 999;
-        }
-
         [data-testid="stChatInput"] textarea {
             font-size: 18px !important;
         }
@@ -96,7 +79,13 @@ st.markdown(
 
 with st.sidebar:
     st.title("Immo Agent")
-    menu = st.radio("Menü", MENU_ITEMS)
+
+    if st.button("▶ Daten Import starten"):
+        st.session_state.trigger_import = True
+
+    st.button("nach Mieter")
+    st.button("nach Einheit")
+    st.button("nach Objekt")
 
 
 def init_state() -> None:
@@ -120,12 +109,13 @@ def init_state() -> None:
     if "datenimport_agent" not in st.session_state:
         st.session_state.datenimport_agent = DatenimportAgent()
 
+    if "trigger_import" not in st.session_state:
+        st.session_state.trigger_import = False
+
 
 def is_import_request(text: str) -> bool:
     text = text.lower()
-    return any(w in text for w in [
-        "import", "daten", "buchhaltung", "lade daten"
-    ])
+    return "import" in text or "buchhaltung" in text
 
 
 def llm_response() -> str:
@@ -143,46 +133,57 @@ def render_chat_history() -> None:
             continue
         with st.chat_message(message["role"]):
             st.write(message["content"])
-            if message.get("table") is not None:
-                st.dataframe(message["table"])
 
 
-def render_placeholder() -> None:
-    st.markdown("## Bereich")
-    st.info("Funktion noch nicht implementiert")
+def render_latest_import_result() -> None:
+    latest_import = None
+    for message in reversed(st.session_state.messages):
+        if message.get("source") == "datenimport_agent":
+            latest_import = message
+            break
+
+    st.markdown("## Ergebnisse")
+    if latest_import:
+        st.write(latest_import.get("content", ""))
+        if latest_import.get("table") is not None:
+            st.dataframe(latest_import["table"])
+    else:
+        st.info("Noch kein Datenimport ausgeführt.")
 
 
 init_state()
 
-if menu in ["LLM Chat", "Daten Import"]:
+col_main, col_chat = st.columns([2, 1])
+
+user_input = st.chat_input("Schreibe deine Nachricht...")
+
+if user_input:
+    st.session_state.messages.append({"role": "user", "content": user_input})
+
+run_import = False
+if st.session_state.trigger_import:
+    run_import = True
+    st.session_state.trigger_import = False
+elif user_input and is_import_request(user_input):
+    run_import = True
+
+if run_import:
+    result = st.session_state.datenimport_agent.run({
+        "file_path": "data/raw/BB_Buchungsstapel - 2026-04-17T184137.857.csv"
+    })
+
+    st.session_state.messages.append({
+        "role": "assistant",
+        "content": result.get("text", ""),
+        "table": result.get("table"),
+        "source": "datenimport_agent"
+    })
+elif user_input:
+    st.session_state.messages.append({"role": "assistant", "content": llm_response()})
+
+with col_main:
+    render_latest_import_result()
+
+with col_chat:
     st.markdown("## Chat")
     render_chat_history()
-
-    if user_input := st.chat_input("Schreibe deine Nachricht..."):
-        st.session_state.messages.append({"role": "user", "content": user_input})
-
-        with st.chat_message("user"):
-            st.write(user_input)
-
-        with st.chat_message("assistant"):
-            with st.spinner("Denke nach..."):
-                if menu == "Daten Import" or is_import_request(user_input):
-                    result = st.session_state.datenimport_agent.run({
-                        "file_path": "data/raw/BB_Buchungsstapel - 2026-04-17T184137.857.csv"
-                    })
-
-                    assistant_response = result.get("text", "")
-                    assistant_table = result.get("table")
-                else:
-                    assistant_response = llm_response()
-                    assistant_table = None
-
-            st.write(assistant_response)
-            if assistant_table is not None:
-                st.dataframe(assistant_table)
-
-        st.session_state.messages.append(
-            {"role": "assistant", "content": assistant_response, "table": assistant_table}
-        )
-else:
-    render_placeholder()

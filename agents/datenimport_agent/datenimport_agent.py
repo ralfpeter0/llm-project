@@ -1,13 +1,10 @@
-import os
-from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
 
 import pandas as pd
 
-from datenimport_agent.tools.mieter_matcher import match_mieter
-from datenimport_agent.tools.normalizer import normalize_column_names, normalize_buchungstext, REQUIRED_COLUMNS
-from datenimport_agent.tools.partner_matcher import match_partner
+from tools.mieter_matcher import run as run_mieter_matcher
+from tools.partner_matcher import run as run_partner_matcher
 
 
 class DatenimportAgent:
@@ -16,13 +13,11 @@ class DatenimportAgent:
         if candidate.exists():
             return candidate
 
-        # tolerate minor naming differences from caller by matching in datain/
-        datain = Path("data") / "datain"
-        if datain.exists():
-            needle = Path(file_path).name.replace(" ", "")
-            for item in datain.glob("*.csv"):
-                if item.name.replace(" ", "") == needle:
-                    return item
+        raw_dir = Path("data") / "raw"
+        if raw_dir.exists():
+            fallback = raw_dir / Path(file_path).name
+            if fallback.exists():
+                return fallback
 
         raise FileNotFoundError(f"Input file not found: {file_path}")
 
@@ -40,53 +35,11 @@ class DatenimportAgent:
         input_path = self._resolve_input_path(file_path)
         df = self._load_csv(input_path)
 
-        # 1) normalize headers and text
-        df = normalize_column_names(df)
-        df = normalize_buchungstext(df)
-
-        # 2) enforce critical column cleanup
-        if "Kostenstelle 2" in df.columns:
-            df = df.drop(columns=["Kostenstelle 2"])
-
-        missing = [col for col in REQUIRED_COLUMNS if col not in df.columns]
-        if missing:
-            raise ValueError(f"Pflichtspalten fehlen: {missing}")
-
-        df = df[REQUIRED_COLUMNS].copy()  # exact order incl. Buchungsnummer last
-
-        # Pflichtfeld: Buchungsnummer
-        if df["Buchungsnummer"].isna().any() or (df["Buchungsnummer"].astype(str).str.strip() == "").any():
-            raise ValueError("Pflichtspalte Buchungsnummer enthält leere Werte")
-
-        # 3) datatype conversions
-        df["Betrag"] = (
-            df["Betrag"].astype(str).str.replace(".", "", regex=False).str.replace(",", ".", regex=False)
-        )
-        df["Betrag"] = pd.to_numeric(df["Betrag"], errors="raise")
-
-        df["Datum"] = pd.to_datetime(df["Datum"], format="mixed", dayfirst=True, errors="raise")
-        df["Sollkonto"] = pd.to_numeric(df["Sollkonto"], errors="raise").astype("Int64")
-        df["Habenkonto"] = pd.to_numeric(df["Habenkonto"], errors="raise").astype("Int64")
-
-        df["Kostenstelle"] = df["Kostenstelle"].astype("string").str.strip()
-        df["Kostenstelle"] = df["Kostenstelle"].replace("", pd.NA)
-        df["Buchungsnummer"] = df["Buchungsnummer"].astype(str).str.strip()
-
-        # 4) matching pipeline - mieter first, then partner only for unmatched
-        df = match_mieter(df, "data/mietmatrix.csv")
-        df = match_partner(df, "datenimport_agent/config/partner_mapping.csv")
-
-        # 5) output
-        today = datetime.today().strftime("%y%m%d")
-        filename = f"{today}_norm_buchhaltung.csv"
-        output_rel = os.path.join("data", filename)
-        output_abs = Path(output_rel)
-        output_abs.parent.mkdir(parents=True, exist_ok=True)
-        df.to_csv(output_abs, sep=";", index=False)
+        # Existing matching pipeline: mieter first, partner second.
+        df = run_mieter_matcher(df)
+        df = run_partner_matcher(df)
 
         return {
-            "status": "success",
-            "rows": int(len(df)),
-            "output_file": output_rel,
-            "preview": df.head(10).to_dict(orient="records"),
+            "text": f"Datenimport abgeschlossen: {len(df)} Buchungen verarbeitet.",
+            "table": df.head(50),
         }

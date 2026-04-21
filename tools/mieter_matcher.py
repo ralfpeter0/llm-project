@@ -2,7 +2,7 @@ import pandas as pd
 import re
 from rapidfuzz import process, fuzz
 
-MIETMATRIX_FILE = r"C:\llm-projekt\immo-agent-v3\data\mietmatrix.csv"
+MIETMATRIX_FILE = "data/raw/mietmatrix.csv"
 
 
 def normalize(text):

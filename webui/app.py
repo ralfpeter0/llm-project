@@ -1,5 +1,13 @@
+import sys
+from pathlib import Path
+
 import streamlit as st
 from openai import OpenAI
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+sys.path.append(str(ROOT_DIR))
+
+from agents.datenimport_agent.datenimport_agent import DatenimportAgent
 
 
 MODEL_NAME = "gpt-4o-mini"
@@ -109,11 +117,21 @@ def init_state() -> None:
             },
         ]
 
+    if "datenimport_agent" not in st.session_state:
+        st.session_state.datenimport_agent = DatenimportAgent()
+
+
+def is_import_request(text: str) -> bool:
+    text = text.lower()
+    return any(w in text for w in [
+        "import", "daten", "buchhaltung", "lade daten"
+    ])
+
 
 def llm_response() -> str:
     response = st.session_state.client.chat.completions.create(
         model=MODEL_NAME,
-        messages=st.session_state.messages,
+        messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages],
         temperature=0.4,
     )
     return response.choices[0].message.content or "Ich konnte keine Antwort generieren."
@@ -124,7 +142,9 @@ def render_chat_history() -> None:
         if message["role"] == "system":
             continue
         with st.chat_message(message["role"]):
-            st.markdown(message["content"], unsafe_allow_html=True)
+            st.write(message["content"])
+            if message.get("table") is not None:
+                st.dataframe(message["table"])
 
 
 def render_placeholder() -> None:
@@ -134,7 +154,7 @@ def render_placeholder() -> None:
 
 init_state()
 
-if menu == "LLM Chat":
+if menu in ["LLM Chat", "Daten Import"]:
     st.markdown("## Chat")
     render_chat_history()
 
@@ -142,13 +162,27 @@ if menu == "LLM Chat":
         st.session_state.messages.append({"role": "user", "content": user_input})
 
         with st.chat_message("user"):
-            st.markdown(user_input, unsafe_allow_html=True)
+            st.write(user_input)
 
         with st.chat_message("assistant"):
             with st.spinner("Denke nach..."):
-                assistant_response = llm_response()
-            st.markdown(assistant_response, unsafe_allow_html=True)
+                if menu == "Daten Import" or is_import_request(user_input):
+                    result = st.session_state.datenimport_agent.run({
+                        "file_path": "data/raw/BB_Buchungsstapel - 2026-04-17T184137.857.csv"
+                    })
 
-        st.session_state.messages.append({"role": "assistant", "content": assistant_response})
+                    assistant_response = result.get("text", "")
+                    assistant_table = result.get("table")
+                else:
+                    assistant_response = llm_response()
+                    assistant_table = None
+
+            st.write(assistant_response)
+            if assistant_table is not None:
+                st.dataframe(assistant_table)
+
+        st.session_state.messages.append(
+            {"role": "assistant", "content": assistant_response, "table": assistant_table}
+        )
 else:
     render_placeholder()

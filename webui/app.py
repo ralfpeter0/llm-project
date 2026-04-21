@@ -77,17 +77,6 @@ st.markdown(
 )
 
 
-with st.sidebar:
-    st.title("Immo Agent")
-
-    if st.button("▶ Daten Import starten"):
-        st.session_state.trigger_import = True
-
-    st.button("nach Mieter")
-    st.button("nach Einheit")
-    st.button("nach Objekt")
-
-
 def init_state() -> None:
     if "client" not in st.session_state:
         st.session_state.client = OpenAI()
@@ -127,63 +116,54 @@ def llm_response() -> str:
     return response.choices[0].message.content or "Ich konnte keine Antwort generieren."
 
 
-def render_chat_history() -> None:
-    for message in st.session_state.messages:
-        if message["role"] == "system":
-            continue
-        with st.chat_message(message["role"]):
-            st.write(message["content"])
-
-
-def render_latest_import_result() -> None:
-    latest_import = None
-    for message in reversed(st.session_state.messages):
-        if message.get("source") == "datenimport_agent":
-            latest_import = message
-            break
-
-    st.markdown("## Ergebnisse")
-    if latest_import:
-        st.write(latest_import.get("content", ""))
-        if latest_import.get("table") is not None:
-            st.dataframe(latest_import["table"])
-    else:
-        st.info("Noch kein Datenimport ausgeführt.")
-
-
 init_state()
 
-col_main, col_chat = st.columns([2, 1])
+with st.sidebar:
+    st.title("Immo Agent")
 
-user_input = st.chat_input("Schreibe deine Nachricht...")
+    if st.button("▶ Daten Import starten"):
+        st.session_state.messages.append({
+            "role": "user",
+            "content": "importiere die buchhaltung"
+        })
+        st.session_state.trigger_import = True
 
-if user_input:
+    st.button("nach Mieter")
+    st.button("nach Einheit")
+    st.button("nach Objekt")
+
+st.markdown("## Chat")
+
+if user_input := st.chat_input("Schreibe deine Nachricht..."):
     st.session_state.messages.append({"role": "user", "content": user_input})
 
-run_import = False
-if st.session_state.trigger_import:
-    run_import = True
-    st.session_state.trigger_import = False
-elif user_input and is_import_request(user_input):
-    run_import = True
+if st.session_state.messages:
+    last = st.session_state.messages[-1]
 
-if run_import:
-    result = st.session_state.datenimport_agent.run({
-        "file_path": "data/raw/BB_Buchungsstapel - 2026-04-17T184137.857.csv"
-    })
+    if last["role"] == "user":
+        if is_import_request(last["content"]) or st.session_state.trigger_import:
+            st.session_state.trigger_import = False
 
-    st.session_state.messages.append({
-        "role": "assistant",
-        "content": result.get("text", ""),
-        "table": result.get("table"),
-        "source": "datenimport_agent"
-    })
-elif user_input:
-    st.session_state.messages.append({"role": "assistant", "content": llm_response()})
+            result = st.session_state.datenimport_agent.run({
+                "file_path": "data/raw/BB_Buchungsstapel - 2026-04-17T184137.857.csv"
+            })
 
-with col_main:
-    render_latest_import_result()
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": result.get("text", ""),
+                "table": result.get("table"),
+                "source": "datenimport_agent"
+            })
+        else:
+            st.session_state.messages.append({"role": "assistant", "content": llm_response()})
 
-with col_chat:
-    st.markdown("## Chat")
-    render_chat_history()
+for message in st.session_state.messages:
+    if message["role"] == "system":
+        continue
+
+    with st.chat_message(message["role"]):
+        if message.get("table") is not None:
+            st.write(message["content"])
+            st.dataframe(message["table"])
+        else:
+            st.markdown(message["content"], unsafe_allow_html=True)

@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
@@ -39,7 +40,14 @@ class DatenimportAgent:
         df = run_mieter_matcher(df)
         df = run_partner_matcher(df)
 
+        output_dir = Path("data/processed")
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        filename = f"{datetime.today().strftime('%Y-%m-%d')}_buchhaltung_processed.csv"
+        output_path = output_dir / filename
+        df.to_csv(output_path, index=False)
+
         return {
-            "text": f"Datenimport abgeschlossen: {len(df)} Buchungen verarbeitet.",
+            "text": f"Import abgeschlossen. Datei gespeichert unter: {output_path}",
             "table": df.head(50),
         }

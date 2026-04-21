@@ -1,5 +1,11 @@
+import sys
+from pathlib import Path
+
 import streamlit as st
 from openai import OpenAI
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+sys.path.append(str(ROOT_DIR))
 
 from agents.datenimport_agent.datenimport_agent import DatenimportAgent
 

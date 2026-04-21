@@ -1,5 +1,13 @@
+import sys
+from pathlib import Path
+
 import streamlit as st
 from openai import OpenAI
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+sys.path.append(str(ROOT_DIR))
+
+from agents.datenimport_agent.datenimport_agent import DatenimportAgent
 
 
 MODEL_NAME = "gpt-4o-mini"
@@ -11,14 +19,6 @@ SYSTEM_PROMPT = (
     "- Aufzählungen wenn sinnvoll\n"
     "- wichtigen Begriffen fett"
 )
-
-MENU_ITEMS = [
-    "LLM Chat",
-    "Daten Import",
-    "nach Mieter",
-    "nach Einheit",
-    "nach Objekt",
-]
 
 
 st.set_page_config(page_title="Immo Agent", layout="wide")
@@ -68,15 +68,6 @@ st.markdown(
             border-color: #dde5ee;
         }
 
-        [data-testid="stChatInput"] {
-            position: sticky;
-            bottom: 0;
-            background: var(--background-color);
-            padding-top: 0.7rem;
-            padding-bottom: 0.2rem;
-            z-index: 999;
-        }
-
         [data-testid="stChatInput"] textarea {
             font-size: 18px !important;
         }
@@ -84,11 +75,6 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-
-
-with st.sidebar:
-    st.title("Immo Agent")
-    menu = st.radio("Menü", MENU_ITEMS)
 
 
 def init_state() -> None:
@@ -109,46 +95,75 @@ def init_state() -> None:
             },
         ]
 
+    if "datenimport_agent" not in st.session_state:
+        st.session_state.datenimport_agent = DatenimportAgent()
+
+    if "trigger_import" not in st.session_state:
+        st.session_state.trigger_import = False
+
+
+def is_import_request(text: str) -> bool:
+    text = text.lower()
+    return "import" in text or "buchhaltung" in text
+
 
 def llm_response() -> str:
     response = st.session_state.client.chat.completions.create(
         model=MODEL_NAME,
-        messages=st.session_state.messages,
+        messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages],
         temperature=0.4,
     )
     return response.choices[0].message.content or "Ich konnte keine Antwort generieren."
 
 
-def render_chat_history() -> None:
-    for message in st.session_state.messages:
-        if message["role"] == "system":
-            continue
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"], unsafe_allow_html=True)
-
-
-def render_placeholder() -> None:
-    st.markdown("## Bereich")
-    st.info("Funktion noch nicht implementiert")
-
-
 init_state()
 
-if menu == "LLM Chat":
-    st.markdown("## Chat")
-    render_chat_history()
+with st.sidebar:
+    st.title("Immo Agent")
 
-    if user_input := st.chat_input("Schreibe deine Nachricht..."):
-        st.session_state.messages.append({"role": "user", "content": user_input})
+    if st.button("▶ Daten Import starten"):
+        st.session_state.messages.append({
+            "role": "user",
+            "content": "importiere die buchhaltung"
+        })
+        st.session_state.trigger_import = True
 
-        with st.chat_message("user"):
-            st.markdown(user_input, unsafe_allow_html=True)
+    st.button("nach Mieter")
+    st.button("nach Einheit")
+    st.button("nach Objekt")
 
-        with st.chat_message("assistant"):
-            with st.spinner("Denke nach..."):
-                assistant_response = llm_response()
-            st.markdown(assistant_response, unsafe_allow_html=True)
+st.markdown("## Chat")
 
-        st.session_state.messages.append({"role": "assistant", "content": assistant_response})
-else:
-    render_placeholder()
+if user_input := st.chat_input("Schreibe deine Nachricht..."):
+    st.session_state.messages.append({"role": "user", "content": user_input})
+
+if st.session_state.messages:
+    last = st.session_state.messages[-1]
+
+    if last["role"] == "user":
+        if is_import_request(last["content"]) or st.session_state.trigger_import:
+            st.session_state.trigger_import = False
+
+            result = st.session_state.datenimport_agent.run({
+                "file_path": "data/raw/BB_Buchungsstapel - 2026-04-17T184137.857.csv"
+            })
+
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": result.get("text", ""),
+                "table": result.get("table"),
+                "source": "datenimport_agent"
+            })
+        else:
+            st.session_state.messages.append({"role": "assistant", "content": llm_response()})
+
+for message in st.session_state.messages:
+    if message["role"] == "system":
+        continue
+
+    with st.chat_message(message["role"]):
+        if message.get("table") is not None:
+            st.write(message["content"])
+            st.dataframe(message["table"])
+        else:
+            st.markdown(message["content"], unsafe_allow_html=True)

@@ -2,7 +2,7 @@ import pandas as pd
 import re
 from rapidfuzz import process, fuzz
 
-PARTNER_FILE = r"C:\llm-projekt\immo-agent-v3\config\partner_mapping.csv"
+PARTNER_FILE = "config/partner_mapping.csv"
 
 
 def normalize(text):

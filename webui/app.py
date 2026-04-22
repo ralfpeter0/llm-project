@@ -23,6 +23,31 @@ SYSTEM_PROMPT = (
 
 st.set_page_config(page_title="Immo Agent", layout="wide")
 
+st.markdown("""
+<style>
+
+/* Sidebar button styling */
+section[data-testid="stSidebar"] button {
+    font-size: 12px !important;
+    padding: 4px 8px !important;
+    border-radius: 6px !important;
+    margin-bottom: 6px !important;
+}
+
+/* Make buttons slightly narrower */
+section[data-testid="stSidebar"] button[kind="secondary"] {
+    width: 90%;
+}
+
+/* Optional hover effect for better UX */
+section[data-testid="stSidebar"] button:hover {
+    background-color: #f0f2f6;
+    border: 1px solid #d0d4d9;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
 st.markdown(
     """
     <style>

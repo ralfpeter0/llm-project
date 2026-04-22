@@ -9,19 +9,40 @@ class MietmatrixViewer:
     def load(self) -> None:
         self.df = pd.read_csv(self.file_path, sep=";")
 
-    def get_full_list(self) -> pd.DataFrame:
+    def _prepare(self) -> pd.DataFrame:
         if self.df is None:
             raise ValueError("Dataframe not loaded. Call load() first.")
 
-        columns = [
+        cols = [
             "vertragid",
             "objekt",
             "wohnung",
-            "mieter_1",
-            "mieter_2",
+            "mieter_name_1",
+            "mieter_name_2",
+            "einheit",
             "konto",
             "sollbetrag",
             "vertragsart",
         ]
 
-        return self.df.sort_values(["einheit", "vertragid", "konto"])[columns]
+        return self.df[cols].rename(
+            columns={
+                "mieter_name_1": "mieter_1",
+                "mieter_name_2": "mieter_2",
+            }
+        )
+
+    def get_full_list(self) -> pd.DataFrame:
+        df = self._prepare().sort_values(["einheit", "vertragid", "konto"])
+        return df[
+            [
+                "vertragid",
+                "objekt",
+                "wohnung",
+                "mieter_1",
+                "mieter_2",
+                "konto",
+                "sollbetrag",
+                "vertragsart",
+            ]
+        ]

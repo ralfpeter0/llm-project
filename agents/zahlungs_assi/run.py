@@ -10,5 +10,8 @@ from agents.zahlungs_assi.zahlungs_assi import ZahlungsAssi
 
 if __name__ == "__main__":
     agent = ZahlungsAssi()
+
     result = agent.run("was hat flury 2025 an nebenkosten bezahlt?")
-    print(result)
+
+    print("Summe:", result["summe"])
+    print(result["daten"].head())

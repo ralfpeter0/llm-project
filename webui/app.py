@@ -8,6 +8,7 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT_DIR))
 
 from agents.datenimport_agent.datenimport_agent import DatenimportAgent
+from agents.mietmatrix_viewer.mietmatrix_viewer import MietmatrixViewer
 
 
 MODEL_NAME = "gpt-4o-mini"
@@ -161,11 +162,46 @@ def init_state() -> None:
     if "trigger_import" not in st.session_state:
         st.session_state.trigger_import = False
 
+    if "trigger_mieterliste" not in st.session_state:
+        st.session_state.trigger_mieterliste = False
+
+    if "view" not in st.session_state:
+        st.session_state.view = "chat"
+
 
 def is_import_request(text: str) -> bool:
     text = text.lower()
     return "import" in text or "buchhaltung" in text
 
+
+
+
+def is_mieterliste_request(text: str) -> bool:
+    normalized = " ".join(text.lower().split())
+    return normalized in {"mieterliste", "mieter", "zeige mir die mieterliste"}
+
+
+def render_mieterliste() -> bool:
+    file_path = "C:\\llm-project\\data\\raw\\mietmatrix.csv"
+
+    try:
+        viewer = MietmatrixViewer(file_path)
+        viewer.load()
+        df = viewer.get_full_list()
+    except Exception:
+        return False
+
+    if df is None or df.empty:
+        return False
+
+    st.session_state.view = "mieterliste"
+    st.session_state.messages.append({
+        "role": "assistant",
+        "content": "Hier ist die Mieterliste.",
+        "table": df,
+        "source": "mietmatrix_viewer",
+    })
+    return True
 
 def llm_response() -> str:
     response = st.session_state.client.chat.completions.create(
@@ -189,7 +225,10 @@ with st.sidebar:
         })
         st.session_state.trigger_import = True
 
-    st.button("nach Mieter")
+    if st.button("Mieter"):
+        st.session_state.view = "mieterliste"
+        st.session_state.messages.append({"role": "user", "content": "mieterliste"})
+        st.session_state.trigger_mieterliste = True
     st.button("nach Einheit")
     st.button("nach Objekt")
 
@@ -202,7 +241,13 @@ if st.session_state.messages:
     last = st.session_state.messages[-1]
 
     if last["role"] == "user":
-        if is_import_request(last["content"]) or st.session_state.trigger_import:
+        handled = False
+
+        if is_mieterliste_request(last["content"]) or st.session_state.trigger_mieterliste:
+            st.session_state.trigger_mieterliste = False
+            handled = render_mieterliste()
+
+        if not handled and (is_import_request(last["content"]) or st.session_state.trigger_import):
             st.session_state.trigger_import = False
 
             result = st.session_state.datenimport_agent.run({
@@ -215,7 +260,9 @@ if st.session_state.messages:
                 "table": result.get("table"),
                 "source": "datenimport_agent"
             })
-        else:
+            handled = True
+
+        if not handled:
             st.session_state.messages.append({"role": "assistant", "content": llm_response()})
 
 for message in st.session_state.messages:

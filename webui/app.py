@@ -162,11 +162,8 @@ def init_state() -> None:
     if "trigger_import" not in st.session_state:
         st.session_state.trigger_import = False
 
-    if "trigger_mieterliste" not in st.session_state:
-        st.session_state.trigger_mieterliste = False
-
     if "view" not in st.session_state:
-        st.session_state.view = "chat"
+        st.session_state.view = None
 
 
 def is_import_request(text: str) -> bool:
@@ -174,34 +171,8 @@ def is_import_request(text: str) -> bool:
     return "import" in text or "buchhaltung" in text
 
 
-
-
 def is_mieterliste_request(text: str) -> bool:
-    normalized = " ".join(text.lower().split())
-    return normalized in {"mieterliste", "mieter", "zeige mir die mieterliste"}
-
-
-def render_mieterliste() -> bool:
-    file_path = "C:\\llm-project\\data\\raw\\mietmatrix.csv"
-
-    try:
-        viewer = MietmatrixViewer(file_path)
-        viewer.load()
-        df = viewer.get_full_list()
-    except Exception:
-        return False
-
-    if df is None or df.empty:
-        return False
-
-    st.session_state.view = "mieterliste"
-    st.session_state.messages.append({
-        "role": "assistant",
-        "content": "Hier ist die Mieterliste.",
-        "table": df,
-        "source": "mietmatrix_viewer",
-    })
-    return True
+    return "mieter" in text.lower()
 
 def llm_response() -> str:
     response = st.session_state.client.chat.completions.create(
@@ -225,10 +196,8 @@ with st.sidebar:
         })
         st.session_state.trigger_import = True
 
-    if st.button("Mieter"):
+    if st.button("nach Mieter"):
         st.session_state.view = "mieterliste"
-        st.session_state.messages.append({"role": "user", "content": "mieterliste"})
-        st.session_state.trigger_mieterliste = True
     st.button("nach Einheit")
     st.button("nach Objekt")
 
@@ -236,6 +205,20 @@ st.markdown("## Chat")
 
 if user_input := st.chat_input("Schreibe deine Nachricht..."):
     st.session_state.messages.append({"role": "user", "content": user_input})
+    if is_mieterliste_request(user_input):
+        st.session_state.view = "mieterliste"
+
+if st.session_state.get("view") == "mieterliste":
+    from agents.mietmatrix_viewer.mietmatrix_viewer import MietmatrixViewer
+
+    file_path = "C:\\llm-project\\data\\raw\\mietmatrix.csv"
+
+    viewer = MietmatrixViewer(file_path)
+    viewer.load()
+    df = viewer.get_full_list()
+
+    st.dataframe(df)
+    st.stop()
 
 if st.session_state.messages:
     last = st.session_state.messages[-1]
@@ -243,11 +226,7 @@ if st.session_state.messages:
     if last["role"] == "user":
         handled = False
 
-        if is_mieterliste_request(last["content"]) or st.session_state.trigger_mieterliste:
-            st.session_state.trigger_mieterliste = False
-            handled = render_mieterliste()
-
-        if not handled and (is_import_request(last["content"]) or st.session_state.trigger_import):
+        if is_import_request(last["content"]) or st.session_state.trigger_import:
             st.session_state.trigger_import = False
 
             result = st.session_state.datenimport_agent.run({

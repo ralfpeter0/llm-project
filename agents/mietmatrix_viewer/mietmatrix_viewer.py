@@ -7,8 +7,8 @@ class MietmatrixViewer:
         self.df = None
 
     def load(self):
-        # CSV korrekt einlesen (wichtig!)
-        self.df = pd.read_csv(self.file_path, sep=";")
+        self.df = pd.read_csv(self.file_path, sep=";", encoding="utf-8")
+        self.df.columns = self.df.columns.str.strip().str.lower()
 
     def get_full_list(self):
         if self.df is None:
@@ -33,13 +33,8 @@ class MietmatrixViewer:
         if missing:
             raise ValueError(f"Fehlende Spalten: {missing}")
 
-        # Umbenennen
-        df = df.rename(
-            columns={
-                "mieter_name_1": "mieter_1",
-                "mieter_name_2": "mieter_2",
-            }
-        )
+        df["mieter_1"] = df["mieter_name_1"]
+        df["mieter_2"] = df["mieter_name_2"]
 
         # Sortierung
         df = df.sort_values(by=["einheit", "vertragid", "konto"])

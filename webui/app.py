@@ -161,11 +161,17 @@ def init_state() -> None:
     if "trigger_import" not in st.session_state:
         st.session_state.trigger_import = False
 
+    if "view" not in st.session_state:
+        st.session_state.view = None
+
 
 def is_import_request(text: str) -> bool:
     text = text.lower()
     return "import" in text or "buchhaltung" in text
 
+
+def is_mieterliste_request(text: str) -> bool:
+    return "mieter" in text.lower()
 
 def llm_response() -> str:
     response = st.session_state.client.chat.completions.create(
@@ -189,7 +195,8 @@ with st.sidebar:
         })
         st.session_state.trigger_import = True
 
-    st.button("nach Mieter")
+    if st.button("nach Mieter"):
+        st.session_state.view = "mieterliste"
     st.button("nach Einheit")
     st.button("nach Objekt")
 
@@ -197,11 +204,27 @@ st.markdown("## Chat")
 
 if user_input := st.chat_input("Schreibe deine Nachricht..."):
     st.session_state.messages.append({"role": "user", "content": user_input})
+    if is_mieterliste_request(user_input):
+        st.session_state.view = "mieterliste"
+
+if st.session_state.get("view") == "mieterliste":
+    from agents.mietmatrix_viewer.mietmatrix_viewer import MietmatrixViewer
+
+    file_path = "C:\\llm-project\\data\\raw\\mietmatrix.csv"
+
+    viewer = MietmatrixViewer(file_path)
+    viewer.load()
+    df = viewer.get_full_list()
+
+    st.dataframe(df)
+    st.stop()
 
 if st.session_state.messages:
     last = st.session_state.messages[-1]
 
     if last["role"] == "user":
+        handled = False
+
         if is_import_request(last["content"]) or st.session_state.trigger_import:
             st.session_state.trigger_import = False
 
@@ -215,7 +238,9 @@ if st.session_state.messages:
                 "table": result.get("table"),
                 "source": "datenimport_agent"
             })
-        else:
+            handled = True
+
+        if not handled:
             st.session_state.messages.append({"role": "assistant", "content": llm_response()})
 
 for message in st.session_state.messages:

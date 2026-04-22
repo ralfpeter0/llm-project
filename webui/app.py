@@ -8,6 +8,7 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT_DIR))
 
 from agents.datenimport_agent.datenimport_agent import DatenimportAgent
+from agents.mietmatrix_viewer.mietmatrix_viewer import MietmatrixViewer
 
 
 MODEL_NAME = "gpt-4o-mini"

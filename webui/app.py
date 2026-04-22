@@ -8,6 +8,7 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT_DIR))
 
 from agents.datenimport_agent.datenimport_agent import DatenimportAgent
+from agents.zahlungs_assi.zahlungs_assi import ZahlungsAssi
 
 
 MODEL_NAME = "gpt-4o-mini"
@@ -158,6 +159,7 @@ def init_state() -> None:
     if "datenimport_agent" not in st.session_state:
         st.session_state.datenimport_agent = DatenimportAgent()
 
+
     if "trigger_import" not in st.session_state:
         st.session_state.trigger_import = False
 
@@ -180,6 +182,7 @@ def llm_response() -> str:
 
 
 init_state()
+zahlungs_assi = ZahlungsAssi()
 
 with st.sidebar:
     st.markdown('<p class="sidebar-title">IMMO-Agent</p>', unsafe_allow_html=True)
@@ -234,6 +237,14 @@ if st.session_state.messages:
                 "content": result.get("text", ""),
                 "table": result.get("table"),
                 "source": "datenimport_agent"
+            })
+        elif any(word in last["content"].lower() for word in ["bezahlt", "miete", "nebenkosten"]):
+            result = zahlungs_assi.run(last["content"])
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": f"**Summe:** {result['summe']} €\n\n**Anzahl:** {result['anzahl']}",
+                "table": result["daten"],
+                "source": "zahlungs_assi",
             })
         else:
             st.session_state.messages.append({"role": "assistant", "content": llm_response()})

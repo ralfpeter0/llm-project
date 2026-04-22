@@ -60,9 +60,44 @@ st.markdown(
         }
 
         section[data-testid="stSidebar"] {
-            width: 20vw !important;
-            min-width: 260px;
-            max-width: 360px;
+            width: 240px !important;
+            min-width: 240px !important;
+            max-width: 240px !important;
+            background-color: #f5f5f5;
+        }
+
+        section[data-testid="stSidebar"] > div {
+            width: 240px !important;
+            min-width: 240px !important;
+            max-width: 240px !important;
+            padding-left: 14px;
+            padding-right: 14px;
+        }
+
+        section[data-testid="stSidebar"] .sidebar-title {
+            font-size: 22px;
+            font-weight: 700;
+            margin: 0;
+            text-align: left;
+        }
+
+        section[data-testid="stSidebar"] .stButton > button {
+            width: 200px !important;
+            min-width: 200px !important;
+            max-width: 200px !important;
+            text-align: left !important;
+            justify-content: flex-start !important;
+            white-space: nowrap !important;
+            font-size: 11px !important;
+            font-weight: 700 !important;
+            padding: 4px 8px !important;
+            border-radius: 6px !important;
+            margin: 0 0 6px 0 !important;
+        }
+
+        section[data-testid="stSidebar"] .stButton > button:hover {
+            background-color: #f0f2f6;
+            border: 1px solid #d0d4d9;
         }
 
         .main .block-container {
@@ -144,7 +179,8 @@ def llm_response() -> str:
 init_state()
 
 with st.sidebar:
-    st.title("Immo Agent")
+    st.markdown('<p class="sidebar-title">IMMO-Agent</p>', unsafe_allow_html=True)
+    st.markdown("<div style='height: 14px;'></div>", unsafe_allow_html=True)
 
     if st.button("▶ Daten Import starten"):
         st.session_state.messages.append({

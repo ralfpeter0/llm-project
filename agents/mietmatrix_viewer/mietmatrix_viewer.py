@@ -7,11 +7,17 @@ class MietmatrixViewer:
         self.df = None
 
     def load(self):
-        self.df = pd.read_csv(self.file_path)
-        self._prepare()
+        # CSV korrekt einlesen (wichtig!)
+        self.df = pd.read_csv(self.file_path, sep=";")
 
-    def _prepare(self):
-        columns = [
+    def get_full_list(self):
+        if self.df is None:
+            raise ValueError("Dataframe not loaded")
+
+        df = self.df.copy()
+
+        # Spalten prüfen (Debug)
+        required = [
             "vertragid",
             "objekt",
             "wohnung",
@@ -22,27 +28,32 @@ class MietmatrixViewer:
             "sollbetrag",
             "vertragsart",
         ]
-        self.df = self.df[columns].copy()
-        self.df = self.df.rename(
+
+        missing = [c for c in required if c not in df.columns]
+        if missing:
+            raise ValueError(f"Fehlende Spalten: {missing}")
+
+        # Umbenennen
+        df = df.rename(
             columns={
                 "mieter_name_1": "mieter_1",
                 "mieter_name_2": "mieter_2",
             }
         )
 
-    def get_view(self):
-        result_columns = [
-            "vertragid",
-            "objekt",
-            "wohnung",
-            "mieter_1",
-            "mieter_2",
-            "konto",
-            "sollbetrag",
-            "vertragsart",
-        ]
+        # Sortierung
+        df = df.sort_values(by=["einheit", "vertragid", "konto"])
 
-        return (
-            self.df.sort_values(["einheit", "vertragid", "konto"])[result_columns]
-            .reset_index(drop=True)
-        )
+        # Ausgabe
+        return df[
+            [
+                "vertragid",
+                "objekt",
+                "wohnung",
+                "mieter_1",
+                "mieter_2",
+                "konto",
+                "sollbetrag",
+                "vertragsart",
+            ]
+        ]

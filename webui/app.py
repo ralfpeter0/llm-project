@@ -161,6 +161,9 @@ def init_state() -> None:
     if "trigger_import" not in st.session_state:
         st.session_state.trigger_import = False
 
+    if "view" not in st.session_state:
+        st.session_state.view = None
+
 
 def is_import_request(text: str) -> bool:
     text = text.lower()
@@ -189,7 +192,8 @@ with st.sidebar:
         })
         st.session_state.trigger_import = True
 
-    st.button("nach Mieter")
+    if st.sidebar.button("nach Mieter"):
+        st.session_state.view = "mieterliste"
     st.button("nach Einheit")
     st.button("nach Objekt")
 
@@ -197,6 +201,22 @@ st.markdown("## Chat")
 
 if user_input := st.chat_input("Schreibe deine Nachricht..."):
     st.session_state.messages.append({"role": "user", "content": user_input})
+    text = user_input.lower()
+    if "mieter" in text:
+        st.session_state.view = "mieterliste"
+
+if st.session_state.get("view") == "mieterliste":
+    from agents.mietmatrix_viewer.mietmatrix_viewer import MietmatrixViewer
+
+    file_path = "C:\\llm-project\\data\\raw\\mietmatrix.csv"
+
+    viewer = MietmatrixViewer(file_path)
+    viewer.load()
+    df = viewer.get_full_list()
+
+    st.dataframe(df)
+
+    st.stop()
 
 if st.session_state.messages:
     last = st.session_state.messages[-1]

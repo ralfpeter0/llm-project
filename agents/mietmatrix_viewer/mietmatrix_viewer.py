@@ -7,7 +7,7 @@ class MietmatrixViewer:
         self.df = None
 
     def load(self):
-        self.df = pd.read_csv(self.file_path, sep=";", encoding="utf-8")
+        self.df = pd.read_csv(self.file_path, sep=",", encoding="utf-8")
         self.df.columns = self.df.columns.str.strip().str.lower()
 
     def get_full_list(self):

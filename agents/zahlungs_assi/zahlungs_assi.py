@@ -37,6 +37,26 @@ class ZahlungsAssi:
 
         df = pd.read_csv(self.csv_path)
 
+        df.columns = (
+            df.columns
+            .str.lower()
+            .str.strip()
+            .str.replace("ä", "a")
+            .str.replace("ö", "o")
+            .str.replace("ü", "u")
+            .str.replace("ß", "ss")
+        )
+
+        rename_map = {
+            "datum": "datum",
+            "betrag": "betrag",
+            "sollkonto": "sollkonto",
+            "habenkonto": "habenkonto",
+        }
+        df = df.rename(columns=rename_map)
+
+        print("CSV Spalten:", df.columns.tolist())
+
         required_columns = {"vertragid", "datum", "betrag", "sollkonto", "habenkonto"}
         missing = required_columns.difference(df.columns)
         if missing:

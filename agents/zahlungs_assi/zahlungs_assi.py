@@ -3,6 +3,11 @@ from pathlib import Path
 import pandas as pd
 
 from agents.zahlungs_assi.llm_parser import AutonomousZahlungsAgent
+from tools.konto_mapper import map_konten
+from tools.mieter_mapper import get_vertragids
+from tools.partner_mapper import get_partnerids
+from tools.zahlung_tool import zahlung_tool
+from tools.zeitraum_tool import get_zeitraum
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -13,12 +18,43 @@ class ZahlungsAssi:
         self.agent = AutonomousZahlungsAgent(model=model)
 
     def run(self, user_input: str) -> dict:
-        result = self.agent.run(user_input)
-        daten = result.get("daten", [])
+        plan = self.agent.create_plan(user_input)
+        print(f"PLAN: {plan}")
+
+        rolle = plan.get("rolle")
+        name = plan.get("name")
+
+        vertragids = None
+        partnerids = None
+
+        if rolle == "mieter" and name:
+            vertragids = get_vertragids(name)
+
+        if rolle == "partner" and name:
+            partnerids = get_partnerids(name)
+
+        konten = map_konten(plan.get("konto_zweck"))
+        zeitraum = get_zeitraum(plan.get("jahr"))
+
+        df = pd.read_csv(self.csv_path, parse_dates=["datum"])
+
+        result = zahlung_tool(
+            df=df,
+            vertragids=vertragids,
+            partnerids=partnerids,
+            konten=konten,
+            von=zeitraum.get("von"),
+            bis=zeitraum.get("bis"),
+            operation=plan.get("operation"),
+        )
 
         return {
-            "summe": float(result.get("summe", 0.0)),
-            "anzahl": int(result.get("anzahl", 0)),
-            "daten": pd.DataFrame(daten),
-            "context": result.get("context", {}),
+            "result": result,
+            "context": {
+                "plan": plan,
+                "vertragids": vertragids,
+                "partnerids": partnerids,
+                "konten": konten,
+                "zeitraum": zeitraum,
+            },
         }

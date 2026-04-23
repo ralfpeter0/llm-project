@@ -1,5 +1,4 @@
 import importlib
-import inspect
 import json
 import re
 from pathlib import Path
@@ -11,6 +10,21 @@ from openai import OpenAI
 ROOT = Path(__file__).resolve().parents[2]
 TOOL_REGISTRY_PATH = ROOT / "config" / "tool_registry.json"
 DEFAULT_MODEL = "gpt-4o-mini"
+
+TOOL_FUNCTION_MAP = {
+    "mieter_mapper": "get_vertragids",
+    "mieter_matcher": "match_mieter_to_vertrag",
+    "konto_mapper": "map_konten",
+    "zahlung_tool": "filter_zahlungen",
+    "zeitraum_tool": "get_zeitraum",
+    "objekt_mapper": "map_objekt_to_kostenstelle",
+    "partner_mapper": "map_partner",
+    "partner_matcher": "match_partner",
+    "soll_ist_check": "check_soll_ist",
+    "anomalie_check": "detect_anomalien",
+    "fuzzy_matcher": "best_match",
+    "output_formatter": "format_output",
+}
 
 
 class ToolExecutionError(RuntimeError):
@@ -50,6 +64,7 @@ class AutonomousZahlungsAgent:
             '  "intent": "zahlung",\n'
             '  "plan": [{"tool": "tool_name", "args": {}}]\n'
             "}\n\n"
+            "Use references like '<output from mieter_mapper>' or '<output from zeitraum_tool.von>' when needed.\n\n"
             "Tool registry:\n"
             f"{registry_json}"
         )
@@ -80,50 +95,63 @@ class AutonomousZahlungsAgent:
                 return {"intent": "zahlung", "plan": []}
             return json.loads(match.group())
 
-    def _resolve_tool_callable(self, module: Any, args: dict[str, Any]):
-        candidates = []
-        for name, obj in inspect.getmembers(module, inspect.isfunction):
-            if name.startswith("_"):
-                continue
-            signature = inspect.signature(obj)
-            params = signature.parameters
-            required = {
-                p_name
-                for p_name, p in params.items()
-                if p.default is inspect._empty and p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY)
-            }
-            if set(args.keys()).issubset(set(params.keys())) or required.issubset(set(args.keys())):
-                candidates.append((name, obj))
+    def _resolve_tool_callable(self, module: Any, tool_name: str):
+        if tool_name == "zahlung_tool" and hasattr(module, "filter_zahlungen"):
+            return module.filter_zahlungen
 
-        if not candidates:
-            for fallback_name in ("run", "execute", "main"):
-                if hasattr(module, fallback_name) and inspect.isfunction(getattr(module, fallback_name)):
-                    return getattr(module, fallback_name)
-            raise ToolExecutionError(f"No callable matches args={args} in module={module.__name__}")
+        mapped_function_name = TOOL_FUNCTION_MAP.get(tool_name)
+        if mapped_function_name and hasattr(module, mapped_function_name):
+            return getattr(module, mapped_function_name)
 
-        candidates.sort(key=lambda x: len(inspect.signature(x[1]).parameters))
-        return candidates[0][1]
+        if hasattr(module, tool_name):
+            return getattr(module, tool_name)
+
+        for fallback_name in ("run", "execute", "main"):
+            if hasattr(module, fallback_name):
+                return getattr(module, fallback_name)
+
+        raise ToolExecutionError(f"No callable found for tool={tool_name} in module={module.__name__}")
 
     @staticmethod
-    def _resolve_arg_value(value: Any, context: dict[str, Any]) -> Any:
-        if not isinstance(value, str):
-            return value
+    def resolve_args(args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+        resolved: dict[str, Any] = {}
 
-        if value.startswith("$"):
-            path = value[1:].split(".")
-            cursor: Any = context
-            for part in path:
-                if isinstance(cursor, dict) and part in cursor:
-                    cursor = cursor[part]
+        for key, value in (args or {}).items():
+            if isinstance(value, str) and "output from" in value:
+                lowered = value.lower()
+
+                if "mieter_mapper" in lowered:
+                    resolved[key] = context.get("mieter_mapper")
+                elif "konto_mapper" in lowered:
+                    resolved[key] = context.get("konto_mapper")
+                elif "zeitraum_tool.von" in lowered:
+                    resolved[key] = context.get("zeitraum_tool", {}).get("von")
+                elif "zeitraum_tool.bis" in lowered:
+                    resolved[key] = context.get("zeitraum_tool", {}).get("bis")
                 else:
-                    return value
-            return cursor
-        return value
+                    resolved[key] = None
+                continue
+
+            if isinstance(value, str) and value.startswith("$"):
+                path = value[1:].split(".")
+                cursor: Any = context
+                for part in path:
+                    if isinstance(cursor, dict) and part in cursor:
+                        cursor = cursor[part]
+                    else:
+                        cursor = value
+                        break
+                resolved[key] = cursor
+                continue
+
+            resolved[key] = value
+
+        return resolved
 
     def call_tool(self, tool_name: str, args: dict[str, Any], context: dict[str, Any]) -> Any:
         module = importlib.import_module(f"tools.{tool_name}")
-        resolved_args = {k: self._resolve_arg_value(v, context) for k, v in (args or {}).items()}
-        tool_callable = self._resolve_tool_callable(module, resolved_args)
+        resolved_args = self.resolve_args(args, context)
+        tool_callable = self._resolve_tool_callable(module, tool_name)
         return tool_callable(**resolved_args)
 
     def _extract_final_params(self, context: dict[str, Any]) -> dict[str, Any]:
@@ -158,7 +186,8 @@ class AutonomousZahlungsAgent:
         for idx, step in enumerate(steps, start=1):
             tool_name = step["tool"]
             args = step.get("args", {})
-            print(f"step {idx}: execute {tool_name} with args={args}")
+            resolved_args = self.resolve_args(args, context)
+            print(f"step {idx}: execute {tool_name} with args={resolved_args}")
             result = self.call_tool(tool_name, args, context)
             context[tool_name] = result
             print(f"step {idx}: result {tool_name}={result}")

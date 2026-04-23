@@ -1,8 +1,22 @@
-import os
+from pathlib import Path
 
 import pandas as pd
 
-FILE_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "tbl_zahlung_mit_mieter.csv")
+ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = ROOT / "data" / "processed"
+
+
+def get_latest_file() -> Path:
+    files = list(DATA_DIR.glob("*.csv"))
+    if not files:
+        raise FileNotFoundError("No processed CSV files found in data/processed")
+
+    latest_file = max(files, key=lambda f: f.stat().st_mtime)
+
+    if len(files) > 1:
+        print(f"Warning: multiple processed CSV files found ({len(files)}). Selecting latest: {latest_file.name}")
+
+    return latest_file
 
 
 def filter_zahlungen(
@@ -12,14 +26,28 @@ def filter_zahlungen(
     bis: str | None = None,
     sollkonto_oder_haben: bool = True,
 ) -> list[dict]:
-    if not os.path.exists(FILE_PATH):
-        raise FileNotFoundError(f"Zahlungsdatei nicht gefunden: {FILE_PATH}")
+    file_path = get_latest_file()
 
-    df = pd.read_csv(FILE_PATH)
+    try:
+        printable_path = file_path.relative_to(ROOT)
+    except ValueError:
+        printable_path = file_path
+
+    print(f"Using data file: {printable_path}")
+
+    df = pd.read_csv(file_path)
+    df = df.rename(columns={
+        "Datum": "datum",
+        "Betrag": "betrag",
+        "Sollkonto": "sollkonto",
+        "Habenkonto": "habenkonto",
+    })
+
     df["datum"] = pd.to_datetime(df["datum"], errors="coerce")
-    df["vertragid"] = pd.to_numeric(df["vertragid"], errors="coerce").fillna(0).astype(int)
+    df["betrag"] = pd.to_numeric(df["betrag"], errors="coerce")
     df["sollkonto"] = pd.to_numeric(df["sollkonto"], errors="coerce")
     df["habenkonto"] = pd.to_numeric(df["habenkonto"], errors="coerce")
+    df["vertragid"] = pd.to_numeric(df["vertragid"], errors="coerce")
 
     if vertragids:
         df = df[df["vertragid"].isin(vertragids)]

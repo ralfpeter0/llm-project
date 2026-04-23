@@ -9,6 +9,17 @@ from tools.partner_matcher import run as run_partner_matcher
 
 
 class DatenimportAgent:
+    def _parse_betrag(self, series: pd.Series) -> pd.Series:
+        cleaned = series.astype(str).str.strip()
+        has_comma = cleaned.str.contains(",", na=False)
+
+        cleaned_with_german_decimal = (
+            cleaned.str.replace(".", "", regex=False).str.replace(",", ".", regex=False)
+        )
+        cleaned = cleaned.where(~has_comma, cleaned_with_german_decimal)
+
+        return pd.to_numeric(cleaned, errors="coerce")
+
     def _resolve_input_path(self, file_path: str) -> Path:
         candidate = Path(file_path)
         if candidate.exists():
@@ -64,13 +75,7 @@ class DatenimportAgent:
         if "datum" in df.columns:
             df["datum"] = pd.to_datetime(df["datum"], errors="coerce", dayfirst=True)
         if "betrag" in df.columns:
-            df["betrag"] = (
-                df["betrag"]
-                .astype(str)
-                .str.replace(".", "", regex=False)
-                .str.replace(",", ".", regex=False)
-            )
-            df["betrag"] = pd.to_numeric(df["betrag"], errors="coerce")
+            df["betrag"] = self._parse_betrag(df["betrag"])
         if "sollkonto" in df.columns:
             df["sollkonto"] = pd.to_numeric(df["sollkonto"], errors="coerce")
         if "habenkonto" in df.columns:
@@ -93,13 +98,7 @@ class DatenimportAgent:
         filename = f"{datetime.today().strftime('%Y-%m-%d')}_buchhaltung_processed.csv"
         output_path = output_dir / filename
         if "betrag" in df.columns:
-            df["betrag"] = (
-                df["betrag"]
-                .astype(str)
-                .str.replace(".", "", regex=False)
-                .str.replace(",", ".", regex=False)
-            )
-            df["betrag"] = pd.to_numeric(df["betrag"], errors="coerce")
+            df["betrag"] = self._parse_betrag(df["betrag"])
         df.to_csv(output_path, index=False)
 
         return {

@@ -22,7 +22,7 @@ def run(df):
     partner_ids = []
     scores = []
 
-    for i, text in enumerate(df["Buchungstext"]):
+    for i, text in enumerate(df["buchungstext"]):
 
         # wenn Mieter erkannt → kein Partner
         if pd.notna(df.loc[i, "vertragid"]):

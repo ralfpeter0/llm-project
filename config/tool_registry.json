@@ -1,0 +1,198 @@
+{
+  "tools": [
+
+    {
+      "name": "mieter_mapper",
+      "description": "Findet zu einem Mieternamen die zugehörigen VertragIDs aus der Mietmatrix. Unterstützt einfache Textsuche.",
+      "input": {
+        "name": "string (Name oder Teil des Mieternamens)"
+      },
+      "output": {
+        "vertragids": "Liste von Integer IDs"
+      },
+      "when_to_use": [
+        "wenn ein Mietername gegeben ist",
+        "wenn VertragIDs benötigt werden"
+      ],
+      "priority": 1
+    },
+
+    {
+      "name": "mieter_matcher",
+      "description": "Ordnet Buchungen automatisch Mietern zu basierend auf Buchungstext und Konto mittels Fuzzy Matching.",
+      "input": {
+        "df": "DataFrame mit Buchungen"
+      },
+      "output": {
+        "df": "DataFrame erweitert um vertragid und mieter_score"
+      },
+      "when_to_use": [
+        "wenn Buchungen noch keine VertragID haben",
+        "wenn automatische Zuordnung benötigt wird"
+      ]
+    },
+
+    {
+      "name": "konto_mapper",
+      "description": "Ordnet Begriffe wie 'Miete', 'Nebenkosten' oder 'Abrechnung' den passenden Buchhaltungskonten zu. Nutzt Mapping und FAQ-Logik.",
+      "input": {
+        "konto_zweck": "string (z.B. 'miete', 'nebenkosten')"
+      },
+      "output": {
+        "konten": "Liste von Kontonummern"
+      },
+      "when_to_use": [
+        "wenn der Nutzer nach einem Zweck fragt",
+        "wenn Kontonummern benötigt werden"
+      ],
+      "priority": 1
+    },
+
+    {
+      "name": "zahlung_tool",
+      "description": "Filtert Zahlungsdaten nach VertragIDs, Konten und Zeitraum und gibt Buchungen zurück. Kann auch Summen berechnen.",
+      "input": {
+        "vertragids": "Liste von IDs",
+        "konten": "Liste von Kontonummern",
+        "von": "Datum (YYYY-MM-DD)",
+        "bis": "Datum (YYYY-MM-DD)"
+      },
+      "output": {
+        "buchungen": "Liste von Buchungsobjekten",
+        "summe": "Gesamtbetrag"
+      },
+      "when_to_use": [
+        "wenn Zahlungen analysiert oder gefiltert werden sollen",
+        "für IST-Daten"
+      ],
+      "priority": 2
+    },
+
+    {
+      "name": "zeitraum_tool",
+      "description": "Berechnet den Mietzeitraum basierend auf Jahr oder Monat (20. des Vormonats bis 19. des Monats).",
+      "input": {
+        "jahr": "int",
+        "monat": "optional int"
+      },
+      "output": {
+        "von": "Datum",
+        "bis": "Datum"
+      },
+      "when_to_use": [
+        "wenn ein Zeitraum aus Jahr oder Monat berechnet werden soll"
+      ],
+      "priority": 1
+    },
+
+    {
+      "name": "objekt_mapper",
+      "description": "Ordnet ein Objekt, eine Adresse oder Bezeichnung einer Kostenstelle zu basierend auf der Mietmatrix.",
+      "input": {
+        "objekt": "string (z.B. 'vol20', Adresse oder Objektname)"
+      },
+      "output": {
+        "kostenstelle": "string"
+      },
+      "when_to_use": [
+        "wenn ein Objekt genannt wird",
+        "wenn nach Kostenstellen gefiltert werden soll"
+      ]
+    },
+
+    {
+      "name": "partner_mapper",
+      "description": "Erkennt Geschäftspartner (z.B. SWM, AWM) aus Buchungstexten basierend auf Mapping und Fuzzy Matching. :contentReference[oaicite:0]{index=0}",
+      "input": {
+        "text": "string (Buchungstext)"
+      },
+      "output": {
+        "canonical": "standardisierter Partnername",
+        "kategorie": "Kategorie des Partners"
+      },
+      "when_to_use": [
+        "wenn Kreditoren oder Dienstleister identifiziert werden sollen",
+        "bei Kostenanalysen"
+      ]
+    },
+
+    {
+      "name": "partner_matcher",
+      "description": "Ordnet Buchungen automatisch PartnerIDs zu basierend auf Buchungstext mittels Fuzzy Matching. :contentReference[oaicite:1]{index=1}",
+      "input": {
+        "df": "DataFrame mit Buchungen"
+      },
+      "output": {
+        "df": "DataFrame erweitert um partnerid und Score"
+      },
+      "when_to_use": [
+        "wenn PartnerIDs fehlen",
+        "für automatische Klassifikation von Ausgaben"
+      ]
+    },
+
+    {
+      "name": "soll_ist_check",
+      "description": "Vergleicht IST-Zahlungen mit SOLL-Werten pro Vertrag, Konto und Monat und bewertet Abweichungen (ok, zu viel, zu wenig). :contentReference[oaicite:2]{index=2}",
+      "input": {
+        "df_ist": "IST-Zahlungen",
+        "df_soll": "SOLL-Daten"
+      },
+      "output": {
+        "df": "DataFrame mit Status pro Vertrag/Konto/Monat"
+      },
+      "when_to_use": [
+        "wenn geprüft werden soll, ob Mieter korrekt bezahlt haben",
+        "für Zahlungschecks"
+      ],
+      "priority": 2
+    },
+
+    {
+      "name": "anomalie_check",
+      "description": "Erkennt zeitliche oder betragsmäßige Anomalien in Zahlungsreihen (z.B. ungewöhnliche Abstände oder Sprünge). :contentReference[oaicite:3]{index=3}",
+      "input": {
+        "df": "DataFrame mit Zahlungen"
+      },
+      "output": {
+        "df": "Liste erkannter Anomalien"
+      },
+      "when_to_use": [
+        "wenn Auffälligkeiten gesucht werden",
+        "für Monitoring und Qualitätssicherung"
+      ]
+    },
+
+    {
+      "name": "fuzzy_matcher",
+      "description": "Hilfsfunktion zur unscharfen Textsuche (Normalisierung, Tokenisierung, Ähnlichkeit). Wird von anderen Tools genutzt. :contentReference[oaicite:4]{index=4}",
+      "input": {
+        "text": "string"
+      },
+      "output": {
+        "score": "Ähnlichkeitswert"
+      },
+      "when_to_use": [
+        "nicht direkt vom Agent verwenden",
+        "nur intern für Matching"
+      ]
+    },
+
+    {
+      "name": "output_formatter",
+      "description": "Formatiert Ergebnisse (Summen, Tabellen, Zahlungsübersicht) für die Ausgabe im Terminal oder UI.",
+      "input": {
+        "intent": "dict",
+        "df": "DataFrame"
+      },
+      "output": {
+        "print": "formatierte Ausgabe"
+      },
+      "when_to_use": [
+        "immer am Ende zur Darstellung",
+        "nicht für Logik verwenden"
+      ]
+    }
+
+  ]
+}

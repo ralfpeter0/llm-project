@@ -14,9 +14,16 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class ZahlungsAssi:
     def __init__(self, csv_path: Path | None = None):
-        self.csv_path = csv_path or (
-            ROOT / "data" / "processed" / "2026-04-22_buchhaltung_processed.csv"
-        )
+        self.csv_path = csv_path or self._find_latest_csv()
+
+    def _find_latest_csv(self) -> Path:
+        processed_dir = ROOT / "data" / "processed"
+        candidates = list(processed_dir.glob("*_buchhaltung_processed.csv"))
+
+        if not candidates:
+            raise FileNotFoundError("No processed CSV file found in data/processed")
+
+        return max(candidates, key=lambda path: path.stat().st_mtime)
 
     def run(self, user_input: str) -> dict:
         plan = create_plan(user_input)
@@ -37,6 +44,7 @@ class ZahlungsAssi:
         konten = map_konten(plan.get("konto_zweck"))
         zeitraum = get_zeitraum(plan.get("jahr"))
 
+        print("Using data file:", self.csv_path)
         df = pd.read_csv(self.csv_path, parse_dates=["datum"])
 
         result = zahlung_tool(

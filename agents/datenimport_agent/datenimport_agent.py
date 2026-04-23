@@ -76,6 +76,13 @@ class DatenimportAgent:
         if "habenkonto" in df.columns:
             df["habenkonto"] = pd.to_numeric(df["habenkonto"], errors="coerce")
 
+        # Backward compatibility for existing matcher tools that still expect
+        # legacy DATEV-style column names.
+        if "buchungstext" in df.columns and "Buchungstext" not in df.columns:
+            df["Buchungstext"] = df["buchungstext"]
+        if "habenkonto" in df.columns and "Habenkonto" not in df.columns:
+            df["Habenkonto"] = df["habenkonto"]
+
         # Existing matching pipeline: mieter first, partner second.
         df = run_mieter_matcher(df)
         df = run_partner_matcher(df)

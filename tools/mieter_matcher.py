@@ -80,8 +80,8 @@ def run(df):
     scores = []
 
     for _, row in df.iterrows():
-        text = row["Buchungstext"]
-        konto_buchung = row["Habenkonto"]  # wichtig!
+        text = row["buchungstext"]
+        konto_buchung = row["habenkonto"]  # wichtig!
 
         vid, score = match_mieter(text, konto_buchung, namen, vertragids, konten)
 

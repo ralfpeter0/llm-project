@@ -44,6 +44,12 @@ def filter_zahlungen(
     })
 
     df["datum"] = pd.to_datetime(df["datum"], errors="coerce")
+    df["betrag"] = (
+        df["betrag"]
+        .astype(str)
+        .str.replace(".", "", regex=False)
+        .str.replace(",", ".", regex=False)
+    )
     df["betrag"] = pd.to_numeric(df["betrag"], errors="coerce")
     df["sollkonto"] = pd.to_numeric(df["sollkonto"], errors="coerce")
     df["habenkonto"] = pd.to_numeric(df["habenkonto"], errors="coerce")

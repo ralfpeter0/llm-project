@@ -27,6 +27,11 @@ TOOL_FUNCTION_MAP = {
 }
 
 
+TOOL_ARG_MAP = {
+    "mieter_mapper": {"name": "mieter"},
+}
+
+
 class ToolExecutionError(RuntimeError):
     """Raised when a configured tool cannot be executed."""
 
@@ -148,9 +153,20 @@ class AutonomousZahlungsAgent:
 
         return resolved
 
+    def _remap_args_for_tool(self, tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+        arg_map = TOOL_ARG_MAP.get(tool_name, {})
+        if not arg_map:
+            return args
+
+        remapped: dict[str, Any] = {}
+        for key, value in args.items():
+            remapped[arg_map.get(key, key)] = value
+        return remapped
+
     def call_tool(self, tool_name: str, args: dict[str, Any], context: dict[str, Any]) -> Any:
         module = importlib.import_module(f"tools.{tool_name}")
         resolved_args = self.resolve_args(args, context)
+        resolved_args = self._remap_args_for_tool(tool_name, resolved_args)
         tool_callable = self._resolve_tool_callable(module, tool_name)
         return tool_callable(**resolved_args)
 
@@ -187,6 +203,7 @@ class AutonomousZahlungsAgent:
             tool_name = step["tool"]
             args = step.get("args", {})
             resolved_args = self.resolve_args(args, context)
+            resolved_args = self._remap_args_for_tool(tool_name, resolved_args)
             print(f"step {idx}: execute {tool_name} with args={resolved_args}")
             result = self.call_tool(tool_name, args, context)
             context[tool_name] = result

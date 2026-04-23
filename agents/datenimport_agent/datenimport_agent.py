@@ -45,6 +45,8 @@ class DatenimportAgent:
 
         filename = f"{datetime.today().strftime('%Y-%m-%d')}_buchhaltung_processed.csv"
         output_path = output_dir / filename
+        df["betrag"] = pd.to_numeric(df["betrag"], errors="coerce")
+        df["betrag"] = df["betrag"].map(lambda x: f"{x:.2f}" if pd.notnull(x) else "")
         df.to_csv(output_path, index=False)
 
         return {

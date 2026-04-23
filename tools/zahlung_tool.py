@@ -36,10 +36,18 @@ def filter_zahlungen(
     print(f"Using data file: {printable_path}")
 
     df = pd.read_csv(file_path)
+    df = df.rename(columns={
+        "Datum": "datum",
+        "Betrag": "betrag",
+        "Sollkonto": "sollkonto",
+        "Habenkonto": "habenkonto",
+    })
+
     df["datum"] = pd.to_datetime(df["datum"], errors="coerce")
-    df["vertragid"] = pd.to_numeric(df["vertragid"], errors="coerce").fillna(0).astype(int)
+    df["betrag"] = pd.to_numeric(df["betrag"], errors="coerce")
     df["sollkonto"] = pd.to_numeric(df["sollkonto"], errors="coerce")
     df["habenkonto"] = pd.to_numeric(df["habenkonto"], errors="coerce")
+    df["vertragid"] = pd.to_numeric(df["vertragid"], errors="coerce")
 
     if vertragids:
         df = df[df["vertragid"].isin(vertragids)]

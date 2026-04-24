@@ -9,7 +9,7 @@ PARTNER_CSV_PATH = os.path.join(CONFIG_DIR, "partner_mapping.csv")
 
 def load_partner_mapping() -> list[dict[str, str]]:
     mapping: list[dict[str, str]] = []
-    with open(PARTNER_CSV_PATH, "r", encoding="utf-8") as file:
+    with open(PARTNER_CSV_PATH, "r", encoding="utf-8-sig") as file:
         reader = csv.DictReader(file)
         for row in reader:
             normalized_row: dict[str, str] = {}
@@ -30,14 +30,18 @@ def _extract_aliases(row: dict[str, str]) -> list[str]:
     return [alias for alias in aliases if alias]
 
 
+# 🔥 HIER IST DER FIX
 def _contains_match(normalized_text: str, candidate: str) -> bool:
     if not candidate:
         return False
-    if candidate in normalized_text:
+
+    # ✅ Richtige Richtung
+    if normalized_text in candidate:
         return True
 
+    # optional robust gegen Varianten
     for token in candidate.split():
-        if len(token) >= 4 and token in normalized_text:
+        if len(token) >= 3 and token in normalized_text:
             return True
 
     return False
@@ -49,11 +53,15 @@ def find_partner(text: str) -> str | None:
         return None
 
     mapping = load_partner_mapping()
+
     for row in mapping:
         canonical = row.get("partner", "")
+
+        # direkt match auf canonical
         if _contains_match(normalized_text, canonical):
             return canonical
 
+        # alias match
         for alias in _extract_aliases(row):
             if _contains_match(normalized_text, alias):
                 return canonical or None
@@ -68,6 +76,7 @@ def get_partner_ids(canonical: str) -> list[int]:
 
     partner_ids: list[int] = []
     mapping = load_partner_mapping()
+
     for row in mapping:
         if normalize(row.get("partner", "")) != canonical_normalized:
             continue
@@ -77,7 +86,7 @@ def get_partner_ids(canonical: str) -> list[int]:
         except (TypeError, ValueError):
             continue
 
-    return partner_ids
+    return list(set(partner_ids))
 
 
 def get_kategorie(canonical: str) -> str | None:
@@ -86,6 +95,7 @@ def get_kategorie(canonical: str) -> str | None:
         return None
 
     mapping = load_partner_mapping()
+
     for row in mapping:
         if normalize(row.get("partner", "")) == canonical_normalized:
             kategorie = row.get("kategorie", "")

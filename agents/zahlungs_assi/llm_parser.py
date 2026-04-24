@@ -25,6 +25,7 @@ def build_prompt(context: dict[str, Any], user_input: str) -> str:
         "TASK:\n"
         "Extract the following fields:\n"
         "- intent (always \"zahlung_mieter\" for now)\n"
+        "- operation (summe, liste, check)\n"
         "- name (tenant name)\n"
         "- jahr (integer year or null)\n"
         "- konto_zweck (miete, nebenkosten, kosten or null)\n\n"
@@ -34,31 +35,38 @@ def build_prompt(context: dict[str, Any], user_input: str) -> str:
         "- DO NOT use account numbers\n"
         "- DO NOT call tools\n"
         "- Missing values must be null\n"
+        "- If question contains \"wie viel\", \"summe\", \"gesamt\": operation = \"summe\"\n"
+        "- If question contains \"zeige\", \"liste\", \"alle\", \"auflisten\": operation = \"liste\"\n"
+        "- If question contains \"hat\", \"existiert\", \"gibt es\", \"bezahlt?\": operation = \"check\"\n"
+        "- Otherwise operation = \"summe\"\n"
         "- Output must be a valid JSON object\n\n"
         "EXAMPLES:\n"
-        "Question: was hat flury 2025 als miete bezahlt\n"
+        "Question: was hat flury 2025 an miete bezahlt\n"
         "Answer:\n"
         "{\n"
         "  \"intent\": \"zahlung_mieter\",\n"
+        "  \"operation\": \"summe\",\n"
         "  \"name\": \"flury\",\n"
         "  \"jahr\": 2025,\n"
         "  \"konto_zweck\": \"miete\"\n"
         "}\n\n"
-        "Question: wie viel nebenkosten hat piehl 2024 bezahlt\n"
+        "Question: zeige alle buchungen von flury\n"
         "Answer:\n"
         "{\n"
         "  \"intent\": \"zahlung_mieter\",\n"
-        "  \"name\": \"piehl\",\n"
-        "  \"jahr\": 2024,\n"
-        "  \"konto_zweck\": \"nebenkosten\"\n"
-        "}\n\n"
-        "Question: was hat flury bezahlt\n"
-        "Answer:\n"
-        "{\n"
-        "  \"intent\": \"zahlung_mieter\",\n"
+        "  \"operation\": \"liste\",\n"
         "  \"name\": \"flury\",\n"
         "  \"jahr\": null,\n"
         "  \"konto_zweck\": null\n"
+        "}\n\n"
+        "Question: hat flury nebenkosten bezahlt\n"
+        "Answer:\n"
+        "{\n"
+        "  \"intent\": \"zahlung_mieter\",\n"
+        "  \"operation\": \"check\",\n"
+        "  \"name\": \"flury\",\n"
+        "  \"jahr\": null,\n"
+        "  \"konto_zweck\": \"nebenkosten\"\n"
         "}\n\n"
         "USER INPUT:\n"
         f"{user_input}"
@@ -81,9 +89,15 @@ def create_plan(user_input: str) -> dict[str, Any]:
     print("PLAN RAW:", response_text)
 
     try:
-        return json.loads(response_text)
+        plan = json.loads(response_text)
     except json.JSONDecodeError as exc:
         raise ValueError("Invalid JSON from LLM: " + response_text) from exc
+
+    operation = plan.get("operation")
+    if operation not in {"summe", "liste", "check"}:
+        plan["operation"] = "summe"
+
+    return plan
 
 
 def parse_query(user_input: str) -> dict[str, Any]:

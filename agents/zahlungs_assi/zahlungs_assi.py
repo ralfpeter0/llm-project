@@ -24,7 +24,7 @@ class ZahlungsAssi:
         zeitraum = get_zeitraum(plan.get("jahr"))
 
         result = zahlung_tool(
-            vertragsids=vertragsids,
+            vertragids=vertragsids,
             konten=konten,
             von=zeitraum.get("von"),
             bis=zeitraum.get("bis"),

@@ -27,6 +27,7 @@ def zahlung_tool(
     von=None,
     bis=None,
     operation="summe",
+    richtung=None,
 ):
 
     file_path = get_latest_file()
@@ -69,10 +70,15 @@ def zahlung_tool(
         df = df[df["vertragid"].isin(vertragids)]
 
     if konten:
-        df = df[
-            df["sollkonto"].isin(konten) |
-            df["habenkonto"].isin(konten)
-        ]
+        if richtung == "einnahme":
+            df = df[df["habenkonto"].isin(konten)]
+        elif richtung == "ausgabe":
+            df = df[df["sollkonto"].isin(konten)]
+        else:
+            df = df[
+                df["sollkonto"].isin(konten) |
+                df["habenkonto"].isin(konten)
+            ]
 
     if von:
         df = df[df["datum"] >= pd.to_datetime(von, errors="coerce")]

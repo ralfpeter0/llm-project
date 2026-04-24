@@ -23,6 +23,7 @@ def get_latest_file() -> Path:
 
 def zahlung_tool(
     vertragids=None,
+    partnerids=None,
     konten=None,
     von=None,
     bis=None,
@@ -65,10 +66,14 @@ def zahlung_tool(
     df["sollkonto"] = pd.to_numeric(df["sollkonto"], errors="coerce")
     df["habenkonto"] = pd.to_numeric(df["habenkonto"], errors="coerce")
     df["vertragid"] = pd.to_numeric(df["vertragid"], errors="coerce")
+    df["partnerid"] = pd.to_numeric(df["partnerid"], errors="coerce")
 
     # Filter
     if vertragids:
         df = df[df["vertragid"].isin(vertragids)]
+
+    if partnerids:
+        df = df[df["partnerid"].isin(partnerids)]
 
     if konten:
         if richtung == "einnahme":

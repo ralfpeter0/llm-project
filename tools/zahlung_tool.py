@@ -28,6 +28,7 @@ def zahlung_tool(
     bis=None,
     operation="summe",
     richtung=None,
+    buchungstext=None,
 ):
 
     file_path = get_latest_file()
@@ -85,6 +86,9 @@ def zahlung_tool(
 
     if bis:
         df = df[df["datum"] <= pd.to_datetime(bis, errors="coerce")]
+
+    if buchungstext:
+        df = df[df["buchungstext"].str.contains(buchungstext, case=False, na=False)]
 
     df = df.copy()
     df["datum"] = df["datum"].dt.strftime("%Y-%m-%d")

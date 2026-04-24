@@ -1,5 +1,4 @@
 from pathlib import Path
-
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,6 +25,7 @@ def filter_zahlungen(
     bis: str | None = None,
     sollkonto_oder_haben: bool = True,
 ) -> list[dict]:
+
     file_path = get_latest_file()
 
     try:
@@ -35,7 +35,14 @@ def filter_zahlungen(
 
     print(f"Using data file: {printable_path}")
 
-    df = pd.read_csv(file_path)
+    # ---------------------------
+    # CSV laden (robust)
+    # ---------------------------
+    df = pd.read_csv(file_path, encoding="latin1")
+
+    # ---------------------------
+    # Spalten vereinheitlichen
+    # ---------------------------
     df = df.rename(columns={
         "Datum": "datum",
         "Betrag": "betrag",
@@ -43,18 +50,26 @@ def filter_zahlungen(
         "Habenkonto": "habenkonto",
     })
 
+    # ---------------------------
+    # Datentypen bereinigen
+    # ---------------------------
     df["datum"] = pd.to_datetime(df["datum"], errors="coerce")
+
+    # Betrag robust parsen
     df["betrag"] = (
         df["betrag"]
         .astype(str)
-        .str.replace(".", "", regex=False)
         .str.replace(",", ".", regex=False)
     )
     df["betrag"] = pd.to_numeric(df["betrag"], errors="coerce")
+
     df["sollkonto"] = pd.to_numeric(df["sollkonto"], errors="coerce")
     df["habenkonto"] = pd.to_numeric(df["habenkonto"], errors="coerce")
     df["vertragid"] = pd.to_numeric(df["vertragid"], errors="coerce")
 
+    # ---------------------------
+    # Filter
+    # ---------------------------
     if vertragids:
         df = df[df["vertragid"].isin(vertragids)]
 
@@ -66,9 +81,13 @@ def filter_zahlungen(
 
     if von:
         df = df[df["datum"] >= pd.to_datetime(von, errors="coerce")]
+
     if bis:
         df = df[df["datum"] <= pd.to_datetime(bis, errors="coerce")]
 
+    # ---------------------------
+    # Ausgabe formatieren
+    # ---------------------------
     df = df.copy()
     df["datum"] = df["datum"].dt.strftime("%Y-%m-%d")
 

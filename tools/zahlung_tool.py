@@ -22,12 +22,12 @@ def get_latest_file() -> Path:
 
 
 def zahlung_tool(
-    vertragids: list[int] | None = None,
-    konten: list[int] | None = None,
-    von: str | None = None,
-    bis: str | None = None,
-    operation: str = "summe",
-) -> dict:
+    vertragids=None,
+    konten=None,
+    von=None,
+    bis=None,
+    operation="summe",
+):
 
     file_path = get_latest_file()
 

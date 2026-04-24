@@ -9,15 +9,9 @@ if str(ROOT_DIR) not in sys.path:
 from agents.zahlungs_assi.zahlungs_assi import ZahlungsAssi
 
 
-if __name__ == "__main__":
-    agent = ZahlungsAssi()
+def print_result(result):
+    print("\nRESULT RAW:", result)
 
-    # 👉 Testfrage hier ändern
-    result = agent.run("was hat flury 2025 an nebenkosten bezahlt?")
-
-    print("RESULT RAW:", result)
-
-    # Dynamischer Output je nach operation
     if "buchungen" in result:
         import pandas as pd
         df = pd.DataFrame(result["buchungen"])
@@ -35,3 +29,22 @@ if __name__ == "__main__":
     else:
         print("\n--- UNBEKANNTER OUTPUT ---")
         print(result)
+
+
+if __name__ == "__main__":
+    agent = ZahlungsAssi()
+
+    print("Immo-Agent gestartet. 'exit' zum Beenden.\n")
+
+    while True:
+        user_input = input("Frage: ")
+
+        if user_input.lower() in ["exit", "quit"]:
+            print("Beendet.")
+            break
+
+        try:
+            result = agent.run(user_input)
+            print_result(result)
+        except Exception as e:
+            print("\nFEHLER:", e)

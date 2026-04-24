@@ -1,12 +1,10 @@
 from pathlib import Path
 
-import pandas as pd
-
 from agents.zahlungs_assi.llm_parser import create_plan
 from tools.konto_mapper import map_konten
 from tools.mieter_mapper import get_vertragids
 from tools.zeitraum_tool import get_zeitraum
-from tools.zahlung_tool import filter_zahlungen, summe_zahlungen
+from tools.zahlung_tool import zahlung_tool
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -20,28 +18,16 @@ class ZahlungsAssi:
         print("PLAN:", plan)
 
         name = plan.get("name")
-        if not name:
-            return {"summe": 0.0, "anzahl": 0, "daten": pd.DataFrame(), "context": {"plan": plan}}
-
-        vertragids = get_vertragids(name)
+        vertragids = get_vertragids(name) if name else None
         konten = map_konten(plan.get("konto_zweck"))
         zeitraum = get_zeitraum(plan.get("jahr"))
 
-        buchungen = filter_zahlungen(
+        result = zahlung_tool(
             vertragids=vertragids,
             konten=konten,
-            von=zeitraum.get("von"),
-            bis=zeitraum.get("bis"),
+            von=zeitraum["von"],
+            bis=zeitraum["bis"],
+            operation=plan.get("operation", "summe"),
         )
 
-        return {
-            "summe": float(summe_zahlungen(buchungen)),
-            "anzahl": len(buchungen),
-            "daten": pd.DataFrame(buchungen),
-            "context": {
-                "plan": plan,
-                "vertragids": vertragids,
-                "konten": konten,
-                "zeitraum": zeitraum,
-            },
-        }
+        return result

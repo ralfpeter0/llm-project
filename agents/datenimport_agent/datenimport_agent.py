@@ -46,29 +46,29 @@ class DatenimportAgent:
 
         input_path = self._resolve_input_path(file_path)
         df = self._load_csv(input_path)
-        df.columns = df.columns.str.strip()
+        df.columns = df.columns.str.strip().str.lower()
 
         column_map = {
-            "Datum": "datum",
-            "Buchungstext": "buchungstext",
-            "Betrag": "betrag",
-            "Währung": "waehrung",
-            "Sollkonto": "sollkonto",
-            "Habenkonto": "habenkonto",
-            "Steuerschlüssel": "steuerschluessel",
-            "Buchungsnummer": "buchungsnummer",
-            "Rechnungsnummern": "rechnungsnummern",
-            "Gegenpartei": "gegenpartei",
-            "Umsatzsteuer": "umsatzsteuer",
-            "Zugewiesene Beträge": "zugewiesene_betraege",
-            "Beleglinks": "beleglinks",
-            "Festschreibung": "festschreibung",
-            "Kommentar": "kommentar",
-            "Kostenstelle": "kostenstelle",
-            "Kostenstelle 2": "kostenstelle_2",
-            "Beleg-Dateinamen": "beleg_dateinamen",
-            "Leistungsdatum": "leistungsdatum",
-            "Datum Zuordnung Steuerperiode": "datum_steuerperiode",
+            "datum": "datum",
+            "buchungstext": "buchungstext",
+            "betrag": "betrag",
+            "währung": "waehrung",
+            "sollkonto": "sollkonto",
+            "habenkonto": "habenkonto",
+            "steuerschlüssel": "steuerschluessel",
+            "buchungsnummer": "buchungsnummer",
+            "rechnungsnummern": "rechnungsnummern",
+            "gegenpartei": "gegenpartei",
+            "umsatzsteuer": "umsatzsteuer",
+            "zugewiesene beträge": "zugewiesene_betraege",
+            "beleglinks": "beleglinks",
+            "festschreibung": "festschreibung",
+            "kommentar": "kommentar",
+            "kostenstelle": "kostenstelle",
+            "kostenstelle 2": "kostenstelle_2",
+            "beleg-dateinamen": "beleg_dateinamen",
+            "leistungsdatum": "leistungsdatum",
+            "datum zuordnung steuerperiode": "datum_steuerperiode",
         }
         df = df.rename(columns=column_map)
 
@@ -81,13 +81,6 @@ class DatenimportAgent:
         if "habenkonto" in df.columns:
             df["habenkonto"] = pd.to_numeric(df["habenkonto"], errors="coerce")
 
-        # Backward compatibility for existing matcher tools that still expect
-        # legacy DATEV-style column names.
-        if "buchungstext" in df.columns and "Buchungstext" not in df.columns:
-            df["Buchungstext"] = df["buchungstext"]
-        if "habenkonto" in df.columns and "Habenkonto" not in df.columns:
-            df["Habenkonto"] = df["habenkonto"]
-
         # Existing matching pipeline: mieter first, partner second.
         df = run_mieter_matcher(df)
         df = run_partner_matcher(df)
@@ -99,6 +92,7 @@ class DatenimportAgent:
         output_path = output_dir / filename
         if "betrag" in df.columns:
             df["betrag"] = self._parse_betrag(df["betrag"])
+        df = df.loc[:, ~df.columns.duplicated()]
         df.to_csv(output_path, index=False)
 
         return {

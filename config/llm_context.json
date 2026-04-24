@@ -1,0 +1,95 @@
+{
+  "domain": "Immobilien Buchhaltung",
+
+  "data_sources": {
+    "mietmatrix.csv": {
+      "beschreibung": "Mietverträge und Stammdaten",
+      "wichtige_felder": {
+        "identifikation": ["vertragid", "einheitid"],
+        "mieter": ["mieter_name_1", "mieter_name_2", "vorname_1", "vorname_2"],
+        "objekt": ["objekt", "einheit", "wohnung", "kostenstelle"],
+        "adresse": ["strasse", "plz", "ort"],
+        "zeitraum": ["startdatum", "enddatum"],
+        "miete": ["betrag", "sollbetrag", "konto"]
+      }
+    },
+
+    "buchhaltung_processed.csv": {
+      "beschreibung": "alle Buchungen (IST-Daten)",
+      "wichtige_felder": {
+        "kern": ["Datum", "Buchungstext", "Betrag"],
+        "konten": ["Sollkonto", "Habenkonto"],
+        "zuordnung": ["vertragid", "Kostenstelle"],
+        "zeit": ["Datum", "Leistungsdatum", "Datum Zuordnung Steuerperiode"],
+        "matching": ["mieter_score", "partnerid", "partner_score"]
+      },
+      "hinweise": [
+        "Betrag ist numerisch mit Punkt als Dezimaltrennzeichen",
+        "Datum ist im Format YYYY-MM-DD",
+        "vertragid verbindet Buchung mit Mietvertrag",
+        "Sollkonto/Habenkonto bestimmen die Art der Buchung",
+        "Kostenstelle entspricht Objekt/Einheit"
+      ]
+    }
+  },
+
+  "field_mapping": {
+    "datum": "Datum",
+    "buchungstext": "Buchungstext",
+    "betrag": "Betrag",
+    "sollkonto": "Sollkonto",
+    "habenkonto": "Habenkonto",
+    "kostenstelle": "Kostenstelle"
+  },
+
+  "available_knowledge_files": {
+    "tool_registry.json": "beschreibt alle verfügbaren Tools, deren Input/Output und Einsatzlogik",
+    "konto_mapping.json": "mappt Begriffe wie miete, nebenkosten auf konkrete Konten",
+    "faq_interpretation.json": "enthält Interpretationsregeln für Nutzerfragen",
+    "partner_mapping.csv": "enthält bekannte Partner und deren Zuordnung"
+  },
+
+  "tools": [
+    "mieter_mapper",
+    "konto_mapper",
+    "zeitraum_tool",
+    "zahlung_tool",
+    "objekt_mapper",
+    "partner_mapper",
+    "soll_ist_check",
+    "anomalie_check"
+  ],
+
+  "tool_usage_principles": [
+    "LLM entscheidet welche Tools genutzt werden",
+    "Daten werden ausschließlich über Tools abgefragt",
+    "LLM greift niemals direkt auf CSV-Daten zu",
+    "Tools liefern strukturierte Ergebnisse zurück"
+  ],
+
+  "core_entities": {
+    "mieter": "Personen aus der Mietmatrix",
+    "vertrag": "Verknüpfung zwischen Mieter und Einheit",
+    "buchung": "Einzelne Zahlung oder Ausgabe",
+    "konto": "Buchhaltungskonto für Einnahmen oder Kosten",
+    "kostenstelle": "Zuordnung zu Objekt oder Einheit",
+    "partner": "Dienstleister oder Zahlungspartner"
+  },
+
+  "concepts": {
+    "miete": "Einnahmen aus Mietverhältnissen",
+    "nebenkosten": "Betriebskosten (Vorauszahlung oder Abrechnung)",
+    "kosten": "Ausgaben für Dienstleistungen oder Betrieb",
+    "zahlung": "alle Geldbewegungen (Einnahmen und Ausgaben)"
+  },
+
+  "rules": [
+    "LLM verwendet keine festen Kontonummern",
+    "LLM arbeitet mit konto_zweck (z.B. miete, nebenkosten)",
+    "Kontonummern werden ausschließlich über konto_mapper bestimmt",
+    "Zeiträume werden über zeitraum_tool berechnet",
+    "Mieter werden über mieter_mapper identifiziert",
+    "Wenn keine Daten gefunden werden, wird keine Summe berechnet sondern eine Rückmeldung gegeben",
+    "Bei unklaren Anfragen soll eine Rückfrage gestellt werden"
+  ]
+}

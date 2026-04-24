@@ -13,18 +13,21 @@ def get_latest_file() -> Path:
     latest_file = max(files, key=lambda f: f.stat().st_mtime)
 
     if len(files) > 1:
-        print(f"Warning: multiple processed CSV files found ({len(files)}). Selecting latest: {latest_file.name}")
+        print(
+            f"Warning: multiple processed CSV files found ({len(files)}). "
+            f"Selecting latest: {latest_file.name}"
+        )
 
     return latest_file
 
 
-def filter_zahlungen(
+def zahlung_tool(
     vertragids: list[int] | None = None,
     konten: list[int] | None = None,
     von: str | None = None,
     bis: str | None = None,
-    sollkonto_oder_haben: bool = True,
-) -> list[dict]:
+    operation: str = "summe",
+) -> dict:
 
     file_path = get_latest_file()
 
@@ -35,14 +38,10 @@ def filter_zahlungen(
 
     print(f"Using data file: {printable_path}")
 
-    # ---------------------------
-    # CSV laden (robust)
-    # ---------------------------
+    # CSV laden
     df = pd.read_csv(file_path, encoding="latin1")
 
-    # ---------------------------
     # Spalten vereinheitlichen
-    # ---------------------------
     df = df.rename(columns={
         "Datum": "datum",
         "Betrag": "betrag",
@@ -50,12 +49,10 @@ def filter_zahlungen(
         "Habenkonto": "habenkonto",
     })
 
-    # ---------------------------
-    # Datentypen bereinigen
-    # ---------------------------
+    # Datentypen
     df["datum"] = pd.to_datetime(df["datum"], errors="coerce")
 
-    # Betrag robust parsen
+    # WICHTIG: nur Komma ersetzen, KEIN Punkt entfernen
     df["betrag"] = (
         df["betrag"]
         .astype(str)
@@ -67,17 +64,15 @@ def filter_zahlungen(
     df["habenkonto"] = pd.to_numeric(df["habenkonto"], errors="coerce")
     df["vertragid"] = pd.to_numeric(df["vertragid"], errors="coerce")
 
-    # ---------------------------
     # Filter
-    # ---------------------------
     if vertragids:
         df = df[df["vertragid"].isin(vertragids)]
 
     if konten:
-        if sollkonto_oder_haben:
-            df = df[df["sollkonto"].isin(konten) | df["habenkonto"].isin(konten)]
-        else:
-            df = df[df["habenkonto"].isin(konten)]
+        df = df[
+            df["sollkonto"].isin(konten) |
+            df["habenkonto"].isin(konten)
+        ]
 
     if von:
         df = df[df["datum"] >= pd.to_datetime(von, errors="coerce")]
@@ -85,14 +80,17 @@ def filter_zahlungen(
     if bis:
         df = df[df["datum"] <= pd.to_datetime(bis, errors="coerce")]
 
-    # ---------------------------
-    # Ausgabe formatieren
-    # ---------------------------
     df = df.copy()
     df["datum"] = df["datum"].dt.strftime("%Y-%m-%d")
 
-    return df.to_dict(orient="records")
+    # Operationen
+    if operation == "summe":
+        return {"summe": float(df["betrag"].sum())}
 
+    if operation == "liste":
+        return {"buchungen": df.to_dict(orient="records")}
 
-def summe_zahlungen(buchungen: list[dict]) -> float:
-    return sum(float(x.get("betrag", 0)) for x in buchungen)
+    if operation == "check":
+        return {"exists": len(df) > 0}
+
+    return {"buchungen": df.to_dict(orient="records")}

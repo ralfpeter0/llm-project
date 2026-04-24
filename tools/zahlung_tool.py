@@ -1,5 +1,4 @@
 from pathlib import Path
-
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -14,7 +13,10 @@ def get_latest_file() -> Path:
     latest_file = max(files, key=lambda f: f.stat().st_mtime)
 
     if len(files) > 1:
-        print(f"Warning: multiple processed CSV files found ({len(files)}). Selecting latest: {latest_file.name}")
+        print(
+            f"Warning: multiple processed CSV files found ({len(files)}). "
+            f"Selecting latest: {latest_file.name}"
+        )
 
     return latest_file
 
@@ -26,6 +28,7 @@ def filter_zahlungen(
     bis: str | None = None,
     sollkonto_oder_haben: bool = True,
 ) -> list[dict]:
+
     file_path = get_latest_file()
 
     try:
@@ -35,7 +38,14 @@ def filter_zahlungen(
 
     print(f"Using data file: {printable_path}")
 
-    df = pd.read_csv(file_path)
+    # ---------------------------
+    # CSV laden
+    # ---------------------------
+    df = pd.read_csv(file_path, encoding="latin1")
+
+    # ---------------------------
+    # Spalten vereinheitlichen
+    # ---------------------------
     df = df.rename(columns={
         "Datum": "datum",
         "Betrag": "betrag",
@@ -43,37 +53,47 @@ def filter_zahlungen(
         "Habenkonto": "habenkonto",
     })
 
+    # ---------------------------
+    # Datentypen bereinigen
+    # ---------------------------
     df["datum"] = pd.to_datetime(df["datum"], errors="coerce")
 
-    betrag_col = df.get("betrag")
-    if betrag_col is not None:
-        if pd.api.types.is_numeric_dtype(betrag_col):
-            df["betrag"] = betrag_col
-        else:
-            df["betrag"] = pd.to_numeric(
-                betrag_col.astype(str)
-                .str.replace(".", "", regex=False)
-                .str.replace(",", ".", regex=False),
-                errors="coerce",
-            )
+    # ✅ WICHTIG: KEIN Punkt entfernen!
+    df["betrag"] = (
+        df["betrag"]
+        .astype(str)
+        .str.replace(",", ".", regex=False)
+    )
+    df["betrag"] = pd.to_numeric(df["betrag"], errors="coerce")
+
     df["sollkonto"] = pd.to_numeric(df["sollkonto"], errors="coerce")
     df["habenkonto"] = pd.to_numeric(df["habenkonto"], errors="coerce")
     df["vertragid"] = pd.to_numeric(df["vertragid"], errors="coerce")
 
+    # ---------------------------
+    # Filter
+    # ---------------------------
     if vertragids:
         df = df[df["vertragid"].isin(vertragids)]
 
     if konten:
         if sollkonto_oder_haben:
-            df = df[df["habenkonto"].isin(konten)]
+            df = df[
+                df["sollkonto"].isin(konten)
+                | df["habenkonto"].isin(konten)
+            ]
         else:
-            df = df[df["sollkonto"].isin(konten)]
+            df = df[df["habenkonto"].isin(konten)]
 
     if von:
         df = df[df["datum"] >= pd.to_datetime(von, errors="coerce")]
+
     if bis:
         df = df[df["datum"] <= pd.to_datetime(bis, errors="coerce")]
 
+    # ---------------------------
+    # Ausgabe formatieren
+    # ---------------------------
     df = df.copy()
     df["datum"] = df["datum"].dt.strftime("%Y-%m-%d")
 

@@ -33,7 +33,7 @@ class ZahlungsAssi:
         if role == "mieter" and name:
             vertragsids = match_mieter(name)
 
-        elif role == "partner" and name:
+        elif name:
             canonical = pm.find_partner(name)
             partnerids = pm.get_partner_ids(canonical) if canonical else None
             print("DEBUG canonical:", canonical)

@@ -22,33 +22,30 @@ class ZahlungsAssi:
         plan = create_plan(user_input)
         print("PLAN:", plan)
 
-        # 2. Partner Mapping (nur wenn rolle = partner)
+        # 2. Initialisierung
+        vertragsids = None
         partnerids = None
-        if plan.get("rolle") == "partner" and plan.get("name"):
-            name = plan.get("name")
 
-            if hasattr(pm, "match_partner"):
-                partnerids = pm.match_partner(name)
-            elif hasattr(pm, "map_partner"):
-                partnerids = pm.map_partner(name)
-            elif hasattr(pm, "get_partner"):
-                partnerids = pm.get_partner(name)
-            else:
-                partnerids = None
-
-        # 3. Mieter Mapping
         name = plan.get("name")
-        vertragsids = match_mieter(name) if name else None
+        role = plan.get("rolle")
 
-        # 4. Konto Mapping
+        # 3. Mapping strikt trennen
+        if role == "mieter" and name:
+            vertragsids = match_mieter(name)
+
+        elif role == "partner" and name:
+            canonical = pm.find_partner(name)
+            partnerids = pm.get_partner_ids(canonical) if canonical else None
+            print("DEBUG canonical:", canonical)
+            print("DEBUG partnerids:", partnerids)
+
+        # 4. Weitere Filter
         konten = map_konten(plan.get("konto_zweck"))
-
-        # 5. Zeitraum
         zeitraum = get_zeitraum(plan.get("jahr"))
 
-        # 6. Tool-Aufruf
+        # 5. Tool-Aufruf
         result = zahlung_tool(
-            vertragsids=vertragsids,
+            vertragids=vertragsids,        # ⚠️ wichtig: ohne "s"
             partnerids=partnerids,
             konten=konten,
             von=zeitraum.get("von"),
@@ -58,5 +55,4 @@ class ZahlungsAssi:
             buchungstext=plan.get("buchungstext"),
         )
 
-        # 7. Ergebnis
         return result

@@ -1,52 +1,62 @@
 import csv
-import json
 import os
 
-from tools.fuzzy_matcher import best_token_match, normalize
+from tools.fuzzy_matcher import normalize
 
 CONFIG_DIR = os.path.join(os.path.dirname(__file__), "..", "config")
-PARTNER_PATH = os.path.join(CONFIG_DIR, "partner_mapping.json")
-PARTNER_ID_CSV_PATH = os.path.join(CONFIG_DIR, "partner_mapping.csv")
-FUZZY_THRESHOLD = 75
+PARTNER_CSV_PATH = os.path.join(CONFIG_DIR, "partner_mapping.csv")
 
 
-def _load() -> list[dict]:
-    with open(PARTNER_PATH, "r", encoding="utf-8") as file:
-        return json.load(file)
+def load_partner_mapping() -> list[dict[str, str]]:
+    mapping: list[dict[str, str]] = []
+    with open(PARTNER_CSV_PATH, "r", encoding="utf-8") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            normalized_row: dict[str, str] = {}
+            for key, value in row.items():
+                normalized_key = (key or "").strip().lower()
+                normalized_value = normalize(value or "")
+                normalized_row[normalized_key] = normalized_value
+            mapping.append(normalized_row)
+    return mapping
 
 
-def _is_exact_alias_match(text: str, alias: str) -> bool:
-    text_normalized = normalize(text)
-    alias_normalized = normalize(alias)
-    if not text_normalized or not alias_normalized:
+def _extract_aliases(row: dict[str, str]) -> list[str]:
+    aliases_raw = row.get("aliases", "")
+    if not aliases_raw:
+        return []
+    aliases_text = aliases_raw.replace(";", ",")
+    aliases = [normalize(alias) for alias in aliases_text.split(",")]
+    return [alias for alias in aliases if alias]
+
+
+def _contains_match(normalized_text: str, candidate: str) -> bool:
+    if not candidate:
         return False
-    if text_normalized == alias_normalized:
+    if candidate in normalized_text:
         return True
-    return alias_normalized in text_normalized.split(" ")
+
+    for token in candidate.split():
+        if len(token) >= 4 and token in normalized_text:
+            return True
+
+    return False
 
 
 def find_partner(text: str) -> str | None:
-    text_raw = str(text).strip()
-    mapping = _load()
+    normalized_text = normalize(text)
+    if not normalized_text:
+        return None
 
-    for entry in mapping:
-        for alias in entry.get("aliases", []):
-            if _is_exact_alias_match(text_raw, alias):
-                return entry.get("canonical")
+    mapping = load_partner_mapping()
+    for row in mapping:
+        canonical = row.get("partner", "")
+        if _contains_match(normalized_text, canonical):
+            return canonical
 
-    best_canonical = None
-    best_score = 0
-    for entry in mapping:
-        for alias in entry.get("aliases", []):
-            score = best_token_match(text_raw, alias)
-            if score > best_score:
-                best_score = score
-                best_canonical = entry.get("canonical")
-
-    if best_canonical and best_score >= FUZZY_THRESHOLD:
-        print(f"UNMATCHED (Mapping fehlt): {text_raw}")
-        print(f"Fuzzy Partner: {text_raw} -> {best_canonical} | Score: {best_score}")
-        return best_canonical
+        for alias in _extract_aliases(row):
+            if _contains_match(normalized_text, alias):
+                return canonical or None
 
     return None
 
@@ -56,38 +66,29 @@ def get_partner_ids(canonical: str) -> list[int]:
     if not canonical_normalized:
         return []
 
-    if os.path.exists(PARTNER_ID_CSV_PATH):
-        partner_ids: list[int] = []
-        with open(PARTNER_ID_CSV_PATH, "r", encoding="utf-8") as file:
-            reader = csv.DictReader(file)
-            for row in reader:
-                partner = normalize(row.get("partner", ""))
-                if partner == canonical_normalized:
-                    try:
-                        partner_ids.append(int(row.get("partnerid")))
-                    except (TypeError, ValueError):
-                        continue
-        return partner_ids
-
     partner_ids: list[int] = []
-    for entry in _load():
-        if normalize(entry.get("canonical", "")) != canonical_normalized:
+    mapping = load_partner_mapping()
+    for row in mapping:
+        if normalize(row.get("partner", "")) != canonical_normalized:
             continue
-        for partner_id in entry.get("partnerids", []):
-            try:
-                partner_ids.append(int(partner_id))
-            except (TypeError, ValueError):
-                continue
-        if entry.get("partnerid") is not None:
-            try:
-                partner_ids.append(int(entry.get("partnerid")))
-            except (TypeError, ValueError):
-                pass
+
+        try:
+            partner_ids.append(int(row.get("partnerid", "")))
+        except (TypeError, ValueError):
+            continue
+
     return partner_ids
 
 
 def get_kategorie(canonical: str) -> str | None:
-    for entry in _load():
-        if entry.get("canonical") == canonical:
-            return entry.get("kategorie")
+    canonical_normalized = normalize(canonical)
+    if not canonical_normalized:
+        return None
+
+    mapping = load_partner_mapping()
+    for row in mapping:
+        if normalize(row.get("partner", "")) == canonical_normalized:
+            kategorie = row.get("kategorie", "")
+            return kategorie or None
+
     return None

@@ -4,6 +4,7 @@ import tools.partner_mapper as pm
 from agents.zahlungs_assi.llm_parser import create_plan
 from tools.konto_mapper import map_konten
 from tools.mieter_mapper import match_mieter
+from tools.partner_mapper import match_partner
 from tools.zeitraum_tool import get_zeitraum
 from tools.zahlung_tool import zahlung_tool
 

@@ -1,27 +1,29 @@
 import json
-from pathlib import Path
 from typing import Any
 
 from openai import OpenAI
 
+from tools.llm_context_loader import load_context
 
-ROOT = Path(__file__).resolve().parents[2]
-CONTEXT_PATH = ROOT / "config" / "llm_context.json"
+
 MODEL = "gpt-4o-mini"
 
 
-def load_context() -> dict[str, Any]:
-    with open(CONTEXT_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def build_prompt(context: dict[str, Any], user_input: str) -> str:
-    context_json = json.dumps(context, ensure_ascii=False, indent=2)
+def build_system_prompt(ctx: dict[str, Any]) -> str:
+    p = ctx["planner"]
     return (
-        "ROLE:\n"
-        "You are a strict parser for payment queries in real estate accounting.\n\n"
-        "CONTEXT:\n"
-        f"{context_json}\n\n"
+        "Domain:\n"
+        f"{p.get('domain', '')}\n\n"
+        "Konzepte:\n"
+        f"{json.dumps(p.get('concepts', {}), ensure_ascii=False, indent=2)}\n\n"
+        "Entitäten:\n"
+        f"{json.dumps(p.get('core_entities', {}), ensure_ascii=False, indent=2)}\n\n"
+        "Regeln:\n"
+        f"{json.dumps(p.get('rules', []), ensure_ascii=False, indent=2)}\n\n"
+        "Wichtige Felder:\n"
+        f"{json.dumps(p.get('wichtige_felder', []), ensure_ascii=False, indent=2)}\n\n"
+        "Gib IMMER ein JSON zurück mit:\n"
+        "intent, name, rolle, richtung, konto_zweck\n\n"
         "TASK:\n"
         "Extract the following fields:\n"
         "- intent (always \"zahlung\")\n"
@@ -147,21 +149,22 @@ def build_prompt(context: dict[str, Any], user_input: str) -> str:
         "  \"betrag_max\": null,\n"
         "  \"buchungstext\": null,\n"
         "  \"kostenstelle\": null\n"
-        "}\n\n"
-        "USER INPUT:\n"
-        f"{user_input}"
+        "}\n"
     )
 
 
 def create_plan(user_input: str) -> dict[str, Any]:
-    context = load_context()
-    prompt = build_prompt(context, user_input)
+    ctx = load_context()
+    system_prompt = build_system_prompt(ctx)
 
     client = OpenAI()
     response = client.chat.completions.create(
         model=MODEL,
         temperature=0,
-        messages=[{"role": "user", "content": prompt}],
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_input},
+        ],
         response_format={"type": "json_object"},
     )
 

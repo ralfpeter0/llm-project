@@ -3,7 +3,6 @@ from pathlib import Path
 from agents.zahlungs_assi.llm_parser import create_plan
 from tools.konto_mapper import map_konten
 from tools.mieter_mapper import match_mieter
-from tools.partner_mapper import find_partner, get_partner_ids
 from tools.zeitraum_tool import get_zeitraum
 from tools.zahlung_tool import zahlung_tool
 
@@ -19,17 +18,18 @@ class ZahlungsAssi:
         plan = create_plan(user_input)
         print("PLAN:", plan)
 
-        role = plan.get("rolle")
-        name = plan.get("name")
-
-        partnerids = None
-        if role == "partner" and name:
-            canonical = find_partner(name)
-            partnerids = get_partner_ids(canonical) if canonical else None
-
         vertragsids = None
+        partnerids = None
+
+        name = plan.get("name")
+        role = plan.get("rolle")
+
         if role == "mieter" and name:
             vertragsids = match_mieter(name)
+
+        elif role == "partner" and name:
+            canonical = pm.find_partner(name)
+            partnerids = pm.get_partner_ids(canonical) if canonical else None
 
         konten = map_konten(plan.get("konto_zweck"))
         zeitraum = get_zeitraum(plan.get("jahr"))

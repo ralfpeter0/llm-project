@@ -1,9 +1,12 @@
+import csv
 import json
 import os
 
 from tools.fuzzy_matcher import best_token_match, normalize
 
-PARTNER_PATH = os.path.join(os.path.dirname(__file__), "..", "config", "partner_mapping.json")
+CONFIG_DIR = os.path.join(os.path.dirname(__file__), "..", "config")
+PARTNER_PATH = os.path.join(CONFIG_DIR, "partner_mapping.json")
+PARTNER_ID_CSV_PATH = os.path.join(CONFIG_DIR, "partner_mapping.csv")
 FUZZY_THRESHOLD = 75
 
 
@@ -46,6 +49,41 @@ def find_partner(text: str) -> str | None:
         return best_canonical
 
     return None
+
+
+def get_partner_ids(canonical: str) -> list[int]:
+    canonical_normalized = normalize(canonical)
+    if not canonical_normalized:
+        return []
+
+    if os.path.exists(PARTNER_ID_CSV_PATH):
+        partner_ids: list[int] = []
+        with open(PARTNER_ID_CSV_PATH, "r", encoding="utf-8") as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                partner = normalize(row.get("partner", ""))
+                if partner == canonical_normalized:
+                    try:
+                        partner_ids.append(int(row.get("partnerid")))
+                    except (TypeError, ValueError):
+                        continue
+        return partner_ids
+
+    partner_ids: list[int] = []
+    for entry in _load():
+        if normalize(entry.get("canonical", "")) != canonical_normalized:
+            continue
+        for partner_id in entry.get("partnerids", []):
+            try:
+                partner_ids.append(int(partner_id))
+            except (TypeError, ValueError):
+                continue
+        if entry.get("partnerid") is not None:
+            try:
+                partner_ids.append(int(entry.get("partnerid")))
+            except (TypeError, ValueError):
+                pass
+    return partner_ids
 
 
 def get_kategorie(canonical: str) -> str | None:

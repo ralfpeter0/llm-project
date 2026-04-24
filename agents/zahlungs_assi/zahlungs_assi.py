@@ -3,6 +3,7 @@ from pathlib import Path
 from agents.zahlungs_assi.llm_parser import create_plan
 from tools.konto_mapper import map_konten
 from tools.mieter_mapper import match_mieter
+from tools.partner_mapper import match_partner
 from tools.zeitraum_tool import get_zeitraum
 from tools.zahlung_tool import zahlung_tool
 
@@ -18,6 +19,10 @@ class ZahlungsAssi:
         plan = create_plan(user_input)
         print("PLAN:", plan)
 
+        partnerids = None
+        if plan.get("rolle") == "partner" and plan.get("name"):
+            partnerids = match_partner(plan.get("name"))
+
         name = plan.get("name")
         vertragsids = match_mieter(name) if name else None
         konten = map_konten(plan.get("konto_zweck"))
@@ -25,6 +30,7 @@ class ZahlungsAssi:
 
         result = zahlung_tool(
             vertragids=vertragsids,
+            partnerids=partnerids,
             konten=konten,
             von=zeitraum.get("von"),
             bis=zeitraum.get("bis"),

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from tools.plan_enricher import enrich_plan
 from agents.zahlungs_assi.llm_parser import create_plan
 from tools.konto_mapper import map_konten
 from tools.mieter_mapper import match_mieter
@@ -20,6 +21,7 @@ class ZahlungsAssi:
     def run(self, user_input: str) -> dict:
         # 1. Parser
         plan = create_plan(user_input)
+        plan = enrich_plan(plan, user_input) 
         print("PLAN:", plan)
 
         # 2. Initialisierung
